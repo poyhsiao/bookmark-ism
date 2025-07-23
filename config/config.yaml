@@ -1,0 +1,50 @@
+server:
+  port: "8080"
+  host: "0.0.0.0"
+  read_timeout: 30
+  write_timeout: 30
+  environment: "development"
+
+database:
+  host: "supabase-db"
+  port: "5432"
+  user: "postgres"
+  password: "postgres"
+  dbname: "postgres"
+  sslmode: "disable"
+  max_conns: 25
+  min_conns: 5
+
+redis:
+  host: "redis"
+  port: "6379"
+  password: ""
+  db: 0
+  pool_size: 10
+
+supabase:
+  url: "http://localhost:8000"
+  anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24ifQ.625_WdcF3KHqz5amU0x2X5WWHP-OEs_4qj0ssLNHzTs"
+  auth_url: "http://localhost:9999"
+  realtime_url: "ws://localhost:4000"
+
+storage:
+  endpoint: "minio:9000"
+  access_key_id: "minioadmin"
+  secret_access_key: "minioadmin"
+  bucket_name: "bookmarks"
+  use_ssl: false
+
+search:
+  host: "typesense"
+  port: "8108"
+  api_key: "xyz"
+
+jwt:
+  secret: "your-secret-key"
+  expiry_hour: 24
+
+logger:
+  level: "info"
+  format: "json"
+  output_path: "stdout"
