@@ -20,17 +20,45 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 4. WHEN a user logs out THEN the system SHALL clear local bookmark cache and authentication data
 5. IF authentication fails THEN the system SHALL provide clear error messages and recovery options
 
+#### Implementation Status: ✅ COMPLETED
+- ✅ Supabase Auth integration with JWT token validation
+- ✅ User registration and login endpoints
+- ✅ Session management with Redis storage
+- ✅ Role-based access control (RBAC) middleware
+- ✅ Password reset and account recovery workflows
+- ✅ User profile management with preferences storage
+
 ### Requirement 2 - Core Bookmark Management
 
 **User Story:** As a user, I want to create, edit, and delete bookmarks, so that I can manage my bookmark collection.
 
 #### Acceptance Criteria
 
-1. WHEN a user saves a bookmark THEN the system SHALL store URL, title, and basic metadata
-2. WHEN a user edits a bookmark THEN the system SHALL update the information and sync changes
-3. WHEN a user deletes a bookmark THEN the system SHALL remove it and sync the deletion
-4. WHEN displaying bookmarks THEN the system SHALL show title, URL, and creation date
-5. IF bookmark operations fail THEN the system SHALL provide error feedback and retry options
+1. WHEN a user saves a bookmark THEN the system SHALL store URL, title, description, tags, favicon, and screenshot
+2. WHEN a user edits a bookmark THEN the system SHALL update the information with proper validation
+3. WHEN a user deletes a bookmark THEN the system SHALL soft delete it with recovery capability
+4. WHEN displaying bookmarks THEN the system SHALL show title, URL, description, tags, and timestamps
+5. WHEN a user searches bookmarks THEN the system SHALL search across title, description, and URL
+6. WHEN a user filters bookmarks THEN the system SHALL support filtering by tags, status, and collections
+7. WHEN listing bookmarks THEN the system SHALL support pagination and sorting
+8. IF bookmark operations fail THEN the system SHALL provide detailed error messages and validation feedback
+
+#### Implementation Status: ✅ COMPLETED
+- ✅ Full CRUD operations (Create, Read, Update, Delete)
+- ✅ URL format validation
+- ✅ User authorization and isolation
+- ✅ JSON-based tag storage and management
+- ✅ Search functionality across multiple fields
+- ✅ Pagination and sorting support
+- ✅ Soft delete with recovery capability
+- ✅ Comprehensive error handling and validation
+- ✅ RESTful API endpoints with proper HTTP status codes
+
+**Cross-References:**
+- 📋 Implementation Task: [Task 6 in tasks.md](tasks.md#task-6)
+- 🏗️ Technical Design: [Bookmark Management API in design.md](design.md#bookmark-management)
+- 💻 Code Implementation: `backend/internal/bookmark/`
+- 🧪 Test Coverage: `backend/internal/bookmark/service_test.go`
 
 ### Requirement 3 - Basic Collections and Organization
 
@@ -43,6 +71,14 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 3. WHEN a user moves bookmarks between collections THEN the system SHALL update the organization
 4. WHEN displaying collections THEN the system SHALL show bookmark count and basic information
 5. IF collection operations fail THEN the system SHALL maintain data consistency
+
+#### Implementation Status: ⏳ PLANNED (Task 7)
+- ⏳ Collection model with basic folder support
+- ⏳ Collection CRUD operations with validation
+- ⏳ Bookmark-to-collection associations
+- ⏳ Basic collection sharing (public/private)
+- ⏳ Collection listing and organization
+- 🔗 Related to bookmark filtering by collection (partially implemented)
 
 ### Requirement 4 - Cross-Browser Synchronization
 
@@ -88,11 +124,19 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 #### Acceptance Criteria
 
-1. WHEN a user searches THEN the system SHALL search titles, URLs, and basic metadata using Typesense
-2. WHEN displaying search results THEN the system SHALL rank by relevance and recency
-3. WHEN search includes Chinese text THEN the system SHALL support Traditional/Simplified Chinese
-4. WHEN no results are found THEN the system SHALL suggest alternative search terms
+1. WHEN a user searches THEN the system SHALL search titles, URLs, and descriptions with case-insensitive matching
+2. WHEN displaying search results THEN the system SHALL rank by relevance and support sorting
+3. WHEN search includes Chinese text THEN the system SHALL support Traditional/Simplified Chinese (planned with Typesense)
+4. WHEN no results are found THEN the system SHALL provide clear feedback
 5. IF search service is unavailable THEN the system SHALL fall back to basic text matching
+
+#### Implementation Status: 🟡 PARTIALLY COMPLETED
+- ✅ Basic search across title, description, and URL
+- ✅ Case-insensitive search functionality
+- ✅ Search result pagination and sorting
+- ⏳ Advanced search with Typesense (planned for Phase 7)
+- ⏳ Chinese language support (planned for Phase 7)
+- ⏳ Search suggestions and auto-complete (planned for Phase 9)
 
 ### Requirement 8 - Import/Export and Data Migration
 
