@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"bookmark-sync-service/backend/internal/auth"
+	"bookmark-sync-service/backend/internal/bookmark"
+	"bookmark-sync-service/backend/internal/collection"
 	"bookmark-sync-service/backend/internal/config"
 	"bookmark-sync-service/backend/internal/user"
 	"bookmark-sync-service/backend/pkg/middleware"
@@ -24,18 +26,20 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	config         *config.Config
-	db             *gorm.DB
-	redisClient    *redis.Client
-	supabaseClient *supabase.Client
-	storageClient  *storage.Client
-	searchClient   *search.Client
-	logger         *zap.Logger
-	router         *gin.Engine
-	httpServer     *http.Server
-	wsHub          *websocket.Hub
-	authHandler    *auth.Handler
-	userHandler    *user.Handler
+	config            *config.Config
+	db                *gorm.DB
+	redisClient       *redis.Client
+	supabaseClient    *supabase.Client
+	storageClient     *storage.Client
+	searchClient      *search.Client
+	logger            *zap.Logger
+	router            *gin.Engine
+	httpServer        *http.Server
+	wsHub             *websocket.Hub
+	authHandler       *auth.Handler
+	userHandler       *user.Handler
+	bookmarkHandler   *bookmark.Handlers
+	collectionHandler *collection.Handler
 }
 
 // NewServer creates a new server instance
@@ -56,18 +60,28 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 	userService := user.NewService(db, storageClient, logger)
 	userHandler := user.NewHandler(userService, logger)
 
+	// Create bookmark service and handler
+	bookmarkService := bookmark.NewService(db)
+	bookmarkHandler := bookmark.NewHandlers(bookmarkService)
+
+	// Create collection service and handler
+	collectionService := collection.NewService(db)
+	collectionHandler := collection.NewHandler(collectionService)
+
 	server := &Server{
-		config:         cfg,
-		db:             db,
-		redisClient:    redisClient,
-		supabaseClient: supabaseClient,
-		storageClient:  storageClient,
-		searchClient:   searchClient,
-		logger:         logger,
-		router:         gin.New(),
-		wsHub:          wsHub,
-		authHandler:    authHandler,
-		userHandler:    userHandler,
+		config:            cfg,
+		db:                db,
+		redisClient:       redisClient,
+		supabaseClient:    supabaseClient,
+		storageClient:     storageClient,
+		searchClient:      searchClient,
+		logger:            logger,
+		router:            gin.New(),
+		wsHub:             wsHub,
+		authHandler:       authHandler,
+		userHandler:       userHandler,
+		bookmarkHandler:   bookmarkHandler,
+		collectionHandler: collectionHandler,
 	}
 
 	server.setupMiddleware()
@@ -116,31 +130,12 @@ func (s *Server) setupRoutes() {
 			// Auth routes that require authentication
 			protected.POST("/auth/logout", s.authHandler.Logout)
 			protected.GET("/auth/profile", s.authHandler.GetProfile)
-			// Bookmark routes
-			bookmarks := protected.Group("/bookmarks")
-			{
-				bookmarks.GET("", s.placeholder)
-				bookmarks.POST("", s.placeholder)
-				bookmarks.GET("/:id", s.placeholder)
-				bookmarks.PUT("/:id", s.placeholder)
-				bookmarks.DELETE("/:id", s.placeholder)
-				bookmarks.POST("/batch", s.placeholder)
-				bookmarks.POST("/import", s.placeholder)
-				bookmarks.GET("/export", s.placeholder)
-			}
 
-			// Collection routes
-			collections := protected.Group("/collections")
-			{
-				collections.GET("", s.placeholder)
-				collections.POST("", s.placeholder)
-				collections.GET("/:id", s.placeholder)
-				collections.PUT("/:id", s.placeholder)
-				collections.DELETE("/:id", s.placeholder)
-				collections.POST("/:id/bookmarks", s.placeholder)
-				collections.DELETE("/:id/bookmarks/:bookmarkId", s.placeholder)
-				collections.PUT("/:id/share", s.placeholder)
-			}
+			// Register bookmark routes
+			s.bookmarkHandler.RegisterRoutes(protected)
+
+			// Register collection routes
+			s.collectionHandler.RegisterRoutes(protected)
 
 			// Sync routes
 			sync := protected.Group("/sync")
@@ -261,7 +256,7 @@ func (s *Server) healthCheck(c *gin.Context) {
 	services["database"] = gin.H{"status": "healthy"}
 
 	// Check Redis connection
-	if err := s.redisClient.Ping(c.Request.Context()).Err(); err != nil {
+	if err := s.redisClient.Ping(c.Request.Context()); err != nil {
 		services["redis"] = gin.H{"status": "unhealthy", "error": "connection error"}
 		utils.ErrorResponse(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Redis is currently unavailable", nil)
 		return

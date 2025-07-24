@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Collection Management System
+- **Collection CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmark collections
+- **Hierarchical Structure**: Parent-child collection relationships for folder-like organization
+- **Collection Sharing**: Private, public, and shared collections with unique share links
+- **Bookmark-Collection Associations**: Many-to-many relationships between bookmarks and collections
+- **Collection Metadata**: Support for name, description, color, icon, and visibility settings
+- **Advanced Filtering**: Collection listing with search, visibility filtering, and pagination
+- **Bookmark Management**: Add/remove bookmarks to/from collections with proper validation
+
+#### Collection API Endpoints
+- **POST /api/v1/collections**: Create new collections with metadata and sharing settings
+- **GET /api/v1/collections**: List collections with filtering, search, and pagination
+- **GET /api/v1/collections/:id**: Retrieve individual collections with access control
+- **PUT /api/v1/collections/:id**: Update collection properties and metadata
+- **DELETE /api/v1/collections/:id**: Soft delete collections with user verification
+- **POST /api/v1/collections/:id/bookmarks/:bookmark_id**: Add bookmark to collection
+- **DELETE /api/v1/collections/:id/bookmarks/:bookmark_id**: Remove bookmark from collection
+- **GET /api/v1/collections/:id/bookmarks**: List bookmarks within a collection
+
+#### Collection Features
+- **Share Link Generation**: Unique cryptographic share links for collection sharing
+- **Access Control**: User-based authorization with public collection access
+- **Hierarchical Organization**: Support for nested collections and folder structures
+- **Idempotent Operations**: Safe bookmark addition/removal with duplicate handling
+- **Search Integration**: Full-text search across collection names and descriptions
+- **Sorting Options**: Multiple sorting fields (created_at, updated_at, name) with order control
+
 #### Bookmark Management System
 - **Bookmark CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmarks
 - **Service Layer**: Comprehensive bookmark service with validation and business logic
@@ -18,12 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tag Management**: JSON-based tag storage and filtering capabilities
 - **Soft Delete**: Safe bookmark deletion with recovery capabilities
 
-#### Testing Infrastructure
-- **Test-Driven Development**: Complete test suite following TDD methodology
-- **Unit Tests**: Comprehensive service layer testing with SQLite in-memory database
-- **Integration Tests**: HTTP handler testing framework with mock authentication middleware
-- **Test Coverage**: All CRUD operations, validation scenarios, and error handling paths
-- **Mock Framework**: Reusable test utilities and database setup functions
+#### Enhanced Testing Infrastructure
+- **Collection Test Suite**: Comprehensive TDD test coverage for collection management
+- **Service Layer Tests**: Unit tests for all collection business logic and validation
+- **Handler Integration Tests**: HTTP endpoint testing with mock authentication
+- **Edge Case Coverage**: Tests for error scenarios, authorization, and data integrity
+- **Mock Database Setup**: SQLite in-memory database for fast, isolated testing
+- **Test Utilities**: Reusable test helpers and database setup functions
 
 #### API Endpoints
 - **POST /api/v1/bookmarks**: Create new bookmarks with metadata and tags
@@ -33,44 +61,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GET /api/v1/bookmarks**: List bookmarks with search, filtering, and pagination
 
 #### Technical Implementation
+- **GORM Associations**: Many-to-many bookmark-collection relationships with proper foreign keys
+- **Share Link Security**: Cryptographically secure random share link generation
+- **Query Optimization**: Efficient database queries with proper indexing and pagination
+- **Error Handling**: Comprehensive error responses with proper HTTP status codes
+- **User Isolation**: Per-user data isolation with proper authorization checks
+- **Default Value Handling**: Proper default values for sorting and pagination parameters
 - **URL Validation**: Robust URL format checking and normalization
 - **JSON Tag Storage**: Flexible tag system using PostgreSQL JSONB
-- **User Authorization**: Per-user bookmark isolation and access control
-- **Error Handling**: Standardized error responses with proper HTTP status codes
-- **Pagination Support**: Efficient offset-based pagination with total count
-- **Search Functionality**: Case-insensitive search across multiple fields
-
-### Added
-
-#### Bookmark Management System
-- **Bookmark CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmarks
-- **Service Layer**: Comprehensive bookmark service with validation and business logic
-- **HTTP Handlers**: RESTful API endpoints for bookmark management
-- **Data Validation**: URL format validation, required field validation, and user authorization
-- **Search and Filtering**: Full-text search across title, description, and URL with pagination support
-- **Tag Management**: JSON-based tag storage and filtering capabilities
-- **Soft Delete**: Safe bookmark deletion with recovery capabilities
-
-#### Testing Infrastructure
-- **Test-Driven Development**: Complete test suite following TDD methodology
-- **Unit Tests**: Comprehensive service layer testing with SQLite in-memory database
-- **Integration Tests**: HTTP handler testing with mock authentication middleware
-- **Test Coverage**: All CRUD operations, validation scenarios, and error handling paths
-- **Mock Framework**: Reusable test utilities and database setup functions
-
-#### API Endpoints
-- **POST /api/v1/bookmarks**: Create new bookmarks with metadata and tags
-- **GET /api/v1/bookmarks/:id**: Retrieve individual bookmarks with user authorization
-- **PUT /api/v1/bookmarks/:id**: Update bookmark properties and metadata
-- **DELETE /api/v1/bookmarks/:id**: Soft delete bookmarks with user verification
-- **GET /api/v1/bookmarks**: List bookmarks with search, filtering, and pagination
-
-#### Technical Implementation
-- **URL Validation**: Robust URL format checking and normalization
-- **JSON Tag Storage**: Flexible tag system using PostgreSQL JSONB
-- **User Authorization**: Per-user bookmark isolation and access control
-- **Error Handling**: Standardized error responses with proper HTTP status codes
-- **Pagination Support**: Efficient offset-based pagination with total count
 - **Search Functionality**: Case-insensitive search across multiple fields
 
 ## [0.1.0] - 2025-01-23

@@ -56,8 +56,8 @@ type ListBookmarksRequest struct {
 	Status       string `json:"status"`
 	Limit        int    `json:"limit"`
 	Offset       int    `json:"offset"`
-	SortBy       string `json:"sort_by"`
-	SortOrder    string `json:"sort_order"`
+	SortBy       string `json:"sort_by"`    // created_at, updated_at, title, url
+	SortOrder    string `json:"sort_order"` // asc, desc
 }
 
 // Create creates a new bookmark
@@ -115,6 +115,8 @@ func (s *Service) GetByID(bookmarkID, userID uint) (*database.Bookmark, error) {
 	var bookmark database.Bookmark
 
 	err := s.db.Where("id = ? AND user_id = ?", bookmarkID, userID).
+		Preload("User").
+		Preload("Collections").
 		First(&bookmark).Error
 
 	if err != nil {
@@ -197,24 +199,30 @@ func (s *Service) Delete(bookmarkID, userID uint) error {
 func (s *Service) List(req ListBookmarksRequest) ([]*database.Bookmark, int64, error) {
 	query := s.db.Model(&database.Bookmark{}).Where("user_id = ?", req.UserID)
 
-	// Apply search filter
+	// Apply filters
 	if req.Search != "" {
 		searchTerm := "%" + strings.ToLower(req.Search) + "%"
 		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(url) LIKE ?",
 			searchTerm, searchTerm, searchTerm)
 	}
 
-	// Apply status filter
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
 	}
 
-	// Apply tags filter
 	if req.Tags != "" {
-		query = query.Where("tags LIKE ?", "%"+req.Tags+"%")
+		// Simple tag search - can be enhanced with JSON queries
+		tagTerm := "%" + req.Tags + "%"
+		query = query.Where("tags LIKE ?", tagTerm)
 	}
 
-	// Count total records
+	if req.CollectionID > 0 {
+		// Join with bookmark_collections table
+		query = query.Joins("JOIN bookmark_collections ON bookmarks.id = bookmark_collections.bookmark_id").
+			Where("bookmark_collections.collection_id = ?", req.CollectionID)
+	}
+
+	// Get total count
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count bookmarks: %w", err)
@@ -228,7 +236,7 @@ func (s *Service) List(req ListBookmarksRequest) ([]*database.Bookmark, int64, e
 
 	sortOrder := req.SortOrder
 	if sortOrder == "" {
-		sortOrder = "DESC"
+		sortOrder = "desc"
 	}
 
 	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
@@ -237,13 +245,13 @@ func (s *Service) List(req ListBookmarksRequest) ([]*database.Bookmark, int64, e
 	if req.Limit > 0 {
 		query = query.Limit(req.Limit)
 	}
-	if req.Offset >= 0 {
+	if req.Offset > 0 {
 		query = query.Offset(req.Offset)
 	}
 
 	// Execute query
 	var bookmarksData []database.Bookmark
-	if err := query.Find(&bookmarksData).Error; err != nil {
+	if err := query.Preload("User").Preload("Collections").Find(&bookmarksData).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to list bookmarks: %w", err)
 	}
 
