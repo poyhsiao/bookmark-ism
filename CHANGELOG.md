@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Bookmark Management System
+- **Bookmark CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmarks
+- **Service Layer**: Comprehensive bookmark service with validation and business logic
+- **HTTP Handlers**: RESTful API endpoints for bookmark management with proper error handling
+- **Data Validation**: URL format validation, required field validation, and user authorization
+- **Search and Filtering**: Full-text search across title, description, and URL with pagination support
+- **Tag Management**: JSON-based tag storage and filtering capabilities
+- **Soft Delete**: Safe bookmark deletion with recovery capabilities
+
+#### Testing Infrastructure
+- **Test-Driven Development**: Complete test suite following TDD methodology
+- **Unit Tests**: Comprehensive service layer testing with SQLite in-memory database
+- **Integration Tests**: HTTP handler testing framework with mock authentication middleware
+- **Test Coverage**: All CRUD operations, validation scenarios, and error handling paths
+- **Mock Framework**: Reusable test utilities and database setup functions
+
+#### API Endpoints
+- **POST /api/v1/bookmarks**: Create new bookmarks with metadata and tags
+- **GET /api/v1/bookmarks/:id**: Retrieve individual bookmarks with user authorization
+- **PUT /api/v1/bookmarks/:id**: Update bookmark properties and metadata
+- **DELETE /api/v1/bookmarks/:id**: Soft delete bookmarks with user verification
+- **GET /api/v1/bookmarks**: List bookmarks with search, filtering, and pagination
+
+#### Technical Implementation
+- **URL Validation**: Robust URL format checking and normalization
+- **JSON Tag Storage**: Flexible tag system using PostgreSQL JSONB
+- **User Authorization**: Per-user bookmark isolation and access control
+- **Error Handling**: Standardized error responses with proper HTTP status codes
+- **Pagination Support**: Efficient offset-based pagination with total count
+- **Search Functionality**: Case-insensitive search across multiple fields
+
+### Added
+
+#### Bookmark Management System
+- **Bookmark CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmarks
+- **Service Layer**: Comprehensive bookmark service with validation and business logic
+- **HTTP Handlers**: RESTful API endpoints for bookmark management
+- **Data Validation**: URL format validation, required field validation, and user authorization
+- **Search and Filtering**: Full-text search across title, description, and URL with pagination support
+- **Tag Management**: JSON-based tag storage and filtering capabilities
+- **Soft Delete**: Safe bookmark deletion with recovery capabilities
+
+#### Testing Infrastructure
+- **Test-Driven Development**: Complete test suite following TDD methodology
+- **Unit Tests**: Comprehensive service layer testing with SQLite in-memory database
+- **Integration Tests**: HTTP handler testing with mock authentication middleware
+- **Test Coverage**: All CRUD operations, validation scenarios, and error handling paths
+- **Mock Framework**: Reusable test utilities and database setup functions
+
+#### API Endpoints
+- **POST /api/v1/bookmarks**: Create new bookmarks with metadata and tags
+- **GET /api/v1/bookmarks/:id**: Retrieve individual bookmarks with user authorization
+- **PUT /api/v1/bookmarks/:id**: Update bookmark properties and metadata
+- **DELETE /api/v1/bookmarks/:id**: Soft delete bookmarks with user verification
+- **GET /api/v1/bookmarks**: List bookmarks with search, filtering, and pagination
+
+#### Technical Implementation
+- **URL Validation**: Robust URL format checking and normalization
+- **JSON Tag Storage**: Flexible tag system using PostgreSQL JSONB
+- **User Authorization**: Per-user bookmark isolation and access control
+- **Error Handling**: Standardized error responses with proper HTTP status codes
+- **Pagination Support**: Efficient offset-based pagination with total count
+- **Search Functionality**: Case-insensitive search across multiple fields
+
 ## [0.1.0] - 2025-01-23
 
 ### Added

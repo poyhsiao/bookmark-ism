@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"bookmark-sync-service/backend/internal/auth"
 	"bookmark-sync-service/backend/internal/config"
+	"bookmark-sync-service/backend/internal/user"
 	"bookmark-sync-service/backend/pkg/middleware"
 	"bookmark-sync-service/backend/pkg/redis"
 	"bookmark-sync-service/backend/pkg/search"
@@ -32,6 +34,8 @@ type Server struct {
 	router         *gin.Engine
 	httpServer     *http.Server
 	wsHub          *websocket.Hub
+	authHandler    *auth.Handler
+	userHandler    *user.Handler
 }
 
 // NewServer creates a new server instance
@@ -44,6 +48,14 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 	// Create WebSocket hub
 	wsHub := websocket.NewHub(redisClient, logger)
 
+	// Create auth service and handler
+	authService := auth.NewService(db, redisClient, supabaseClient, &cfg.JWT, logger)
+	authHandler := auth.NewHandler(authService, logger)
+
+	// Create user service and handler
+	userService := user.NewService(db, storageClient, logger)
+	userHandler := user.NewHandler(userService, logger)
+
 	server := &Server{
 		config:         cfg,
 		db:             db,
@@ -54,6 +66,8 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 		logger:         logger,
 		router:         gin.New(),
 		wsHub:          wsHub,
+		authHandler:    authHandler,
+		userHandler:    userHandler,
 	}
 
 	server.setupMiddleware()
@@ -86,19 +100,22 @@ func (s *Server) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	{
 		// Public auth routes (no authentication required)
-		auth := v1.Group("/auth")
+		authGroup := v1.Group("/auth")
 		{
-			auth.POST("/register", s.placeholder)
-			auth.POST("/login", s.placeholder)
-			auth.POST("/refresh", s.placeholder)
-			auth.POST("/logout", s.placeholder)
-			auth.POST("/reset", s.placeholder)
+			authGroup.POST("/register", s.authHandler.Register)
+			authGroup.POST("/login", s.authHandler.Login)
+			authGroup.POST("/refresh", s.authHandler.RefreshToken)
+			authGroup.POST("/reset", s.authHandler.ResetPassword)
+			authGroup.POST("/validate", s.authHandler.ValidateToken)
 		}
 
 		// Protected routes (require authentication)
 		protected := v1.Group("/")
 		protected.Use(middleware.AuthMiddleware(&s.config.JWT))
 		{
+			// Auth routes that require authentication
+			protected.POST("/auth/logout", s.authHandler.Logout)
+			protected.GET("/auth/profile", s.authHandler.GetProfile)
 			// Bookmark routes
 			bookmarks := protected.Group("/bookmarks")
 			{
@@ -136,15 +153,16 @@ func (s *Server) setupRoutes() {
 			}
 
 			// User profile routes
-			user := protected.Group("/user")
+			userGroup := protected.Group("/user")
 			{
-				user.GET("/profile", s.placeholder)
-				user.PUT("/profile", s.placeholder)
-				user.GET("/preferences", s.placeholder)
-				user.PUT("/preferences", s.placeholder)
-				user.POST("/avatar", s.placeholder)
-				user.GET("/stats", s.placeholder)
-				user.POST("/export", s.placeholder)
+				userGroup.GET("/profile", s.userHandler.GetProfile)
+				userGroup.PUT("/profile", s.userHandler.UpdateProfile)
+				userGroup.GET("/preferences", s.userHandler.GetPreferences)
+				userGroup.PUT("/preferences", s.userHandler.UpdatePreferences)
+				userGroup.POST("/avatar", s.userHandler.UploadAvatar)
+				userGroup.GET("/stats", s.userHandler.GetStats)
+				userGroup.POST("/export", s.userHandler.ExportData)
+				userGroup.DELETE("/account", s.userHandler.DeleteAccount)
 			}
 
 			// Storage routes

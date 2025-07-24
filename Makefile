@@ -69,8 +69,34 @@ dev:
 # Run tests
 test:
 	@echo "🧪 Running tests..."
-	go test -v -race -coverprofile=coverage.out ./...
-	@echo "📊 Coverage report: coverage.out"
+	cd backend && go test -v -race -coverprofile=coverage.out ./...
+	@echo "📊 Coverage report: backend/coverage.out"
+
+test-coverage:
+	@echo "🧪 Running tests with coverage report..."
+	cd backend && go test -v -race -coverprofile=coverage.out ./...
+	cd backend && go tool cover -html=coverage.out -o coverage.html
+	@echo "📊 Coverage report: backend/coverage.html"
+
+test-models:
+	@echo "🗃️ Running database models tests..."
+	cd backend && go test ./pkg/database -v
+
+test-auth-service:
+	@echo "🔐 Running auth service tests..."
+	cd backend && go test ./internal/auth -v
+
+test-user-service:
+	@echo "👤 Running user service tests..."
+	cd backend && go test ./internal/user -v
+
+test-middleware:
+	@echo "🛡️ Running middleware tests..."
+	cd backend && go test ./pkg/middleware -v
+
+test-config:
+	@echo "⚙️ Running config tests..."
+	cd backend && go test ./internal/config -v
 
 # Clean build artifacts
 clean:
@@ -139,14 +165,29 @@ prod-build:
 	docker-compose -f docker-compose.prod.yml build
 	@echo "✅ Production images built"
 
-# Database operations (placeholder for future implementation)
+# Database operations
 db-migrate:
 	@echo "🗃️ Running database migrations..."
-	@echo "⚠️ Database migrations will be implemented in the next task"
+	go run ./backend/cmd/migrate/main.go -direction=up
 
 db-seed:
 	@echo "🌱 Seeding database..."
-	@echo "⚠️ Database seeding will be implemented in the next task"
+	go run ./backend/cmd/migrate/main.go -direction=seed
+
+db-rollback:
+	@echo "⚠️ Rolling back database migrations..."
+	@read -p "Are you sure? This will drop all tables! [y/N] " -n 1 -r; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo ""; \
+		go run ./backend/cmd/migrate/main.go -direction=down; \
+	else \
+		echo ""; \
+		echo "❌ Rollback cancelled"; \
+	fi
+
+db-backup:
+	@echo "💾 Creating database backup..."
+	./scripts/backup.sh
 
 db-reset:
 	@echo "⚠️ This will reset the database and delete all data!"
@@ -190,18 +231,15 @@ logs:
 
 health:
 	@echo "🏥 Checking service health..."
-	@echo "API Server:"
-	@curl -s http://localhost:8080/health | jq . || echo "❌ API Server not responding"
-	@echo ""
-	@echo "Supabase Auth:"
-	@curl -s http://localhost:9999/health || echo "❌ Supabase Auth not responding"
-	@echo ""
-	@echo "Typesense:"
-	@curl -s http://localhost:8108/health | jq . || echo "❌ Typesense not responding"
-	@echo ""
-	@echo "MinIO:"
-	@curl -s http://localhost:9000/minio/health/live || echo "❌ MinIO not responding"
-	@echo ""
+	./scripts/health-check.sh
+
+test-auth:
+	@echo "🔐 Testing authentication endpoints..."
+	./scripts/test-auth.sh
+
+test-user:
+	@echo "👤 Testing user profile management endpoints..."
+	./scripts/test-user.sh
 
 docs:
 	@echo "📚 Generating and serving documentation..."

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"bookmark-sync-service/backend/internal/config"
@@ -53,13 +54,18 @@ func AuthMiddleware(cfg *config.JWTConfig) gin.HandlerFunc {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			// Set user information in context
 			if userID, exists := claims["user_id"]; exists {
-				c.Set("user_id", userID)
+				// Convert float64 to string for consistency
+				if userIDFloat, ok := userID.(float64); ok {
+					c.Set("user_id", fmt.Sprintf("%.0f", userIDFloat))
+				} else {
+					c.Set("user_id", fmt.Sprintf("%v", userID))
+				}
 			}
 			if email, exists := claims["email"]; exists {
-				c.Set("email", email)
+				c.Set("email", fmt.Sprintf("%v", email))
 			}
 			if supabaseID, exists := claims["sub"]; exists {
-				c.Set("supabase_id", supabaseID)
+				c.Set("supabase_id", fmt.Sprintf("%v", supabaseID))
 			}
 		}
 
@@ -103,13 +109,18 @@ func OptionalAuthMiddleware(cfg *config.JWTConfig) gin.HandlerFunc {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			// Set user information in context
 			if userID, exists := claims["user_id"]; exists {
-				c.Set("user_id", userID)
+				// Convert float64 to string for consistency
+				if userIDFloat, ok := userID.(float64); ok {
+					c.Set("user_id", fmt.Sprintf("%.0f", userIDFloat))
+				} else {
+					c.Set("user_id", fmt.Sprintf("%v", userID))
+				}
 			}
 			if email, exists := claims["email"]; exists {
-				c.Set("email", email)
+				c.Set("email", fmt.Sprintf("%v", email))
 			}
 			if supabaseID, exists := claims["sub"]; exists {
-				c.Set("supabase_id", supabaseID)
+				c.Set("supabase_id", fmt.Sprintf("%v", supabaseID))
 			}
 		}
 

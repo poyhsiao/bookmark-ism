@@ -61,15 +61,19 @@ func (c *Client) EnsureBucketExists(ctx context.Context) error {
 	return nil
 }
 
-// UploadFile uploads a file to MinIO
-func (c *Client) UploadFile(ctx context.Context, objectName string, data []byte, contentType string) error {
+// UploadFile uploads a file to MinIO and returns the object name
+func (c *Client) UploadFile(ctx context.Context, objectName string, data []byte, contentType string) (string, error) {
 	reader := bytes.NewReader(data)
 	_, err := c.client.PutObject(ctx, c.bucketName, objectName, reader, int64(len(data)),
 		minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
-		return fmt.Errorf("failed to upload file: %w", err)
+		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
-	return nil
+
+	// Return a URL that can be used to access the file
+	// In a production environment, you might want to return a presigned URL
+	// For now, we'll return the object path
+	return fmt.Sprintf("/storage/%s", objectName), nil
 }
 
 // DownloadFile downloads a file from MinIO
@@ -128,30 +132,30 @@ func (c *Client) ListFiles(ctx context.Context, prefix string) ([]string, error)
 // StoreScreenshot stores a screenshot for a bookmark
 func (c *Client) StoreScreenshot(ctx context.Context, bookmarkID string, data []byte) (string, error) {
 	objectName := fmt.Sprintf("screenshots/%s.png", bookmarkID)
-	err := c.UploadFile(ctx, objectName, data, "image/png")
+	url, err := c.UploadFile(ctx, objectName, data, "image/png")
 	if err != nil {
 		return "", err
 	}
-	return objectName, nil
+	return url, nil
 }
 
 // StoreAvatar stores a user avatar
 func (c *Client) StoreAvatar(ctx context.Context, userID string, data []byte, contentType string) (string, error) {
 	objectName := fmt.Sprintf("avatars/%s", userID)
-	err := c.UploadFile(ctx, objectName, data, contentType)
+	url, err := c.UploadFile(ctx, objectName, data, contentType)
 	if err != nil {
 		return "", err
 	}
-	return objectName, nil
+	return url, nil
 }
 
 // StoreBackup stores a backup file
 func (c *Client) StoreBackup(ctx context.Context, userID string, data []byte) (string, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	objectName := fmt.Sprintf("backups/%s/%s.json", userID, timestamp)
-	err := c.UploadFile(ctx, objectName, data, "application/json")
+	url, err := c.UploadFile(ctx, objectName, data, "application/json")
 	if err != nil {
 		return "", err
 	}
-	return objectName, nil
+	return url, nil
 }
