@@ -31,6 +31,9 @@ type Hub struct {
 	// Redis client for pub/sub
 	redisClient *redis.Client
 
+	// Sync service for handling sync messages
+	syncService SyncService
+
 	// Logger
 	logger *zap.Logger
 
@@ -99,6 +102,19 @@ func NewHub(redisClient *redis.Client, logger *zap.Logger) *Hub {
 		register:    make(chan *Client),
 		unregister:  make(chan *Client),
 		redisClient: redisClient,
+		logger:      logger,
+	}
+}
+
+// NewHubWithSyncService creates a new WebSocket hub with sync service integration
+func NewHubWithSyncService(redisClient *redis.Client, syncService SyncService, logger *zap.Logger) *Hub {
+	return &Hub{
+		clients:     make(map[*Client]bool),
+		broadcast:   make(chan []byte),
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
+		redisClient: redisClient,
+		syncService: syncService,
 		logger:      logger,
 	}
 }
@@ -288,8 +304,24 @@ func (c *Client) writePump() {
 	}
 }
 
+// SyncService interface for WebSocket integration
+type SyncService interface {
+	HandleSyncMessage(ctx context.Context, msg *SyncMessage) (*SyncMessage, error)
+}
+
+// SyncMessage represents a sync message for WebSocket communication
+type SyncMessage struct {
+	Type      string                 `json:"type"`
+	UserID    string                 `json:"user_id,omitempty"`
+	DeviceID  string                 `json:"device_id,omitempty"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+	Timestamp time.Time              `json:"timestamp"`
+}
+
 // handleMessage processes incoming WebSocket messages
 func (c *Client) handleMessage(msg *Message) {
+	ctx := context.Background()
+
 	switch msg.Type {
 	case "ping":
 		// Respond with pong
@@ -302,10 +334,85 @@ func (c *Client) handleMessage(msg *Message) {
 	case "sync_request":
 		// Handle sync request
 		c.logger.Info("Sync request received", zap.String("type", msg.Type))
-		// TODO: Implement sync logic
+
+		if c.hub.syncService != nil {
+			// Convert to sync message format
+			var data map[string]interface{}
+			if msg.Data != nil {
+				if d, ok := msg.Data.(map[string]interface{}); ok {
+					data = d
+				} else {
+					data = make(map[string]interface{})
+				}
+			} else {
+				data = make(map[string]interface{})
+			}
+
+			syncMsg := &SyncMessage{
+				Type:      "sync_request",
+				UserID:    c.userID,
+				DeviceID:  c.deviceID,
+				Data:      data,
+				Timestamp: time.Now(),
+			}
+
+			// Handle sync request through sync service
+			syncResponse, err := c.hub.syncService.HandleSyncMessage(ctx, syncMsg)
+			if err != nil {
+				c.logger.Error("Failed to handle sync request", zap.Error(err))
+				response := &Message{
+					Type:      "sync_error",
+					Data:      map[string]interface{}{"error": err.Error()},
+					Timestamp: time.Now(),
+				}
+				c.sendMessage(response)
+				return
+			}
+
+			// Convert sync response back to WebSocket message
+			response := &Message{
+				Type:      "sync_response",
+				Data:      syncResponse.Data,
+				Timestamp: time.Now(),
+			}
+			c.sendMessage(response)
+		} else {
+			// Fallback response when sync service is not available
+			response := &Message{
+				Type:      "sync_response",
+				Data:      map[string]interface{}{"status": "sync_service_unavailable"},
+				Timestamp: time.Now(),
+			}
+			c.sendMessage(response)
+		}
+
+	case "sync_event":
+		// Handle sync event
+		c.logger.Info("Sync event received",
+			zap.String("type", msg.Type),
+			zap.String("user_id", c.userID),
+			zap.String("device_id", c.deviceID),
+		)
+
+		// For sync events, we typically just acknowledge receipt
+		// The actual processing would be handled by the sync service
+		response := &Message{
+			Type:      "sync_event_ack",
+			Data:      map[string]interface{}{"status": "received"},
+			Timestamp: time.Now(),
+		}
+		c.sendMessage(response)
 
 	default:
 		c.logger.Warn("Unknown message type", zap.String("type", msg.Type))
+
+		// Send error response for unknown message types
+		response := &Message{
+			Type:      "error",
+			Data:      map[string]interface{}{"error": "unknown_message_type", "received_type": msg.Type},
+			Timestamp: time.Now(),
+		}
+		c.sendMessage(response)
 	}
 }
 

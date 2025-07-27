@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmark Sync</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Loading State -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Authentication Screen -->
+    <div id="auth-screen" class="screen hidden">
+      <div class="header">
+        <h1>Bookmark Sync</h1>
+        <p>Sign in to sync your bookmarks</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="login-tab" class="tab-button active">Login</button>
+        <button id="register-tab" class="tab-button">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+        <div id="login-error" class="error-message hidden"></div>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form hidden">
+        <div class="form-group">
+          <label for="register-name">Name</label>
+          <input type="text" id="register-name" required>
+        </div>
+        <div class="form-group">
+          <label for="register-email">Email</label>
+          <input type="email" id="register-email" required>
+        </div>
+        <div class="form-group">
+          <label for="register-password">Password</label>
+          <input type="password" id="register-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Register</button>
+        <div id="register-error" class="error-message hidden"></div>
+      </form>
+    </div>
+
+    <!-- Main Screen -->
+    <div id="main-screen" class="screen hidden">
+      <!-- Header -->
+      <div class="header">
+        <div class="user-info">
+          <span id="user-name">User</span>
+          <button id="logout-btn" class="btn btn-text">Logout</button>
+        </div>
+        <div class="sync-status">
+          <span id="sync-indicator" class="sync-indicator offline">●</span>
+          <span id="sync-text">Offline</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button id="bookmark-current-btn" class="btn btn-primary">
+          <span class="icon">📌</span>
+          Bookmark Current Page
+        </button>
+        <button id="refresh-btn" class="btn btn-secondary">
+          <span class="icon">🔄</span>
+          Refresh
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="search-section">
+        <input type="text" id="search-input" placeholder="Search bookmarks..." class="search-input">
+      </div>
+
+      <!-- View Toggle -->
+      <div class="view-controls">
+        <button id="grid-view-btn" class="view-btn active">
+          <span class="icon">⊞</span>
+        </button>
+        <button id="list-view-btn" class="view-btn">
+          <span class="icon">☰</span>
+        </button>
+        <select id="sort-select" class="sort-select">
+          <option value="created_at:desc">Newest First</option>
+          <option value="created_at:asc">Oldest First</option>
+          <option value="title:asc">Title A-Z</option>
+          <option value="title:desc">Title Z-A</option>
+        </select>
+      </div>
+
+      <!-- Bookmarks Container -->
+      <div id="bookmarks-container" class="bookmarks-container">
+        <div id="bookmarks-grid" class="bookmarks-grid"></div>
+        <div id="bookmarks-list" class="bookmarks-list hidden"></div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">📚</div>
+        <h3>No bookmarks yet</h3>
+        <p>Start by bookmarking the current page or create a new bookmark.</p>
+      </div>
+
+      <!-- Loading More -->
+      <div id="loading-more" class="loading-more hidden">
+        <div class="spinner small"></div>
+        <span>Loading more...</span>
+      </div>
+    </div>
+
+    <!-- Bookmark Modal -->
+    <div id="bookmark-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Edit Bookmark</h3>
+          <button id="modal-close" class="btn btn-text">×</button>
+        </div>
+        <form id="bookmark-form">
+          <div class="form-group">
+            <label for="bookmark-title">Title</label>
+            <input type="text" id="bookmark-title" required>
+          </div>
+          <div class="form-group">
+            <label for="bookmark-url">URL</label>
+            <input type="url" id="bookmark-url" required>
+          </div>
+          <div class="form-group">
+            <label for="bookmark-description">Description</label>
+            <textarea id="bookmark-description" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="bookmark-tags">Tags (comma separated)</label>
+            <input type="text" id="bookmark-tags" placeholder="tag1, tag2, tag3">
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="modal-cancel" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" id="modal-delete" class="btn btn-danger hidden">Delete</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

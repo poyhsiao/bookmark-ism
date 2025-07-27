@@ -4,12 +4,13 @@
 
 ## 實現狀態
 
-### ✅ 已完成功能 (Phase 1-4)
+### ✅ 已完成功能 (Phase 1-5)
 
 - **Phase 1**: 核心基礎設施和容器化部署
 - **Phase 2**: Supabase 認證集成和用戶管理
 - **Phase 3**: 完整的書籤和收藏夾 CRUD 操作
-- **Phase 4**: 跨瀏覽器實時同步系統 ✨ **最新完成**
+- **Phase 4**: 跨瀏覽器實時同步系統
+- **Phase 5**: 瀏覽器擴展 MVP (Chrome + Firefox) ✨ **最新完成**
 
 ### 🔄 核心功能
 
@@ -18,17 +19,25 @@
 - ✅ 完整書籤管理 (CRUD、搜索、標籤、軟刪除)
 - ✅ 分層收藏夾管理 (嵌套結構、共享、權限控制)
 - ✅ **實時跨瀏覽器同步** (WebSocket、衝突解決、離線支持)
+- ✅ **Chrome 瀏覽器擴展** (彈出界面、選項頁面、內容腳本、實時同步)
+- ✅ **Firefox 瀏覽器擴展** (跨瀏覽器兼容、統一後端同步)
 - ⏳ 搜索和發現 (計劃中)
 - ⏳ 社區功能 (計劃中)
 
-### 🚀 Phase 4 新增功能
+### 🚀 Phase 5 新增功能
 
-- **WebSocket 實時同步**: 使用 Gorilla WebSocket 實現亞秒級同步
-- **智能衝突解決**: 基於時間戳的衝突解決策略
-- **設備管理**: 自動設備註冊和多設備狀態管理
-- **帶寬優化**: 事件去重和增量同步，減少 70% 網絡使用
-- **離線支持**: 離線事件隊列和自動恢復機制
-- **Redis Pub/Sub**: 多實例消息廣播支持
+- **Chrome 瀏覽器擴展**: 完整的 Chrome 擴展實現，支持 Manifest V3
+- **Firefox 瀏覽器擴展**: 完整的 Firefox 擴展實現，支持 Manifest V2
+- **跨瀏覽器兼容**: 統一的 API 接口，支持 Chrome 和 Firefox 無縫切換
+- **彈出界面**: 響應式設計的書籤管理界面，支持網格和列表視圖
+- **實時同步**: 與後端 WebSocket 集成，實現跨瀏覽器實時書籤同步
+- **認證系統**: 完整的登錄/註冊流程，支持 JWT 令牌管理
+- **離線支持**: 本地緩存和離線隊列，支持網絡恢復後自動同步
+- **選項頁面**: 全面的設置管理，包括同步、顯示和隱私選項
+- **內容腳本**: 自動頁面元數據提取和書籤檢測
+- **上下文菜單**: 右鍵快速書籤功能
+- **存儲管理**: 智能緩存管理和存儲優化
+- **測試覆蓋**: 150+ 測試用例，遵循 TDD 開發方法
 
 ## 技術堆棧
 
@@ -44,31 +53,46 @@
 ## 目錄結構
 
 ```
-backend/
-├── cmd/                   # 應用程序入口點
-│   ├── api/              # API 服務器
-│   ├── sync/             # 同步服務
-│   ├── worker/           # 後台工作者
-│   └── migrate/          # 數據庫遷移
-├── internal/             # 私有應用程序代碼
-│   ├── auth/             # 認證邏輯 ✅
-│   ├── bookmark/         # 書籤業務邏輯 ✅
-│   ├── collection/       # 收藏夾管理 ✅
-│   ├── sync/             # 實時同步邏輯 ✅
-│   ├── user/             # 用戶管理 ✅
-│   ├── community/        # 社交功能 (計劃中)
-│   ├── search/           # 搜索集成 (計劃中)
-│   └── storage/          # 文件存儲邏輯 (計劃中)
-├── pkg/                  # 公共包
-│   ├── database/         # 數據庫模型和連接
-│   ├── redis/            # Redis 客戶端操作
-│   ├── websocket/        # WebSocket 管理
-│   └── utils/            # 共享工具
-├── api/                  # API 定義
-│   └── v1/               # API v1 路由
-├── config/               # 配置文件
-├── migrations/           # 數據庫模式遷移
-└── docker/               # Docker 配置
+bookmark-sync-service/
+├── backend/              # Go 後端服務
+│   ├── cmd/             # 應用程序入口點
+│   ├── internal/        # 私有應用程序代碼
+│   ├── pkg/             # 公共包
+│   └── api/             # API 定義
+├── extensions/          # 瀏覽器擴展 ✅
+│   ├── chrome/          # Chrome 擴展 ✅
+│   │   ├── manifest.json      # 擴展配置
+│   │   ├── background/        # 後台腳本
+│   │   │   ├── service-worker.js    # 主服務工作者
+│   │   │   ├── auth-manager.js      # 認證管理
+│   │   │   ├── sync-manager.js      # 同步管理
+│   │   │   └── storage-manager.js   # 存儲管理
+│   │   ├── popup/             # 彈出界面
+│   │   │   ├── popup.html     # 主界面
+│   │   │   ├── popup.css      # 樣式
+│   │   │   └── popup.js       # 邏輯
+│   │   ├── options/           # 選項頁面
+│   │   │   ├── options.html   # 設置界面
+│   │   │   ├── options.css    # 樣式
+│   │   │   └── options.js     # 邏輯
+│   │   └── content/           # 內容腳本
+│   │       └── page-analyzer.js    # 頁面分析
+│   ├── firefox/         # Firefox 擴展 ✅
+│   │   ├── manifest.json      # Firefox 擴展配置 (Manifest V2)
+│   │   ├── background/        # 後台腳本 (持久化背景頁面)
+│   │   ├── popup/             # 彈出界面 (與 Chrome 共享)
+│   │   ├── options/           # 選項頁面 (與 Chrome 共享)
+│   │   └── content/           # 內容腳本 (與 Chrome 共享)
+│   ├── safari/          # Safari 擴展 (計劃中)
+│   ├── shared/          # 共享代碼 ✅
+│   │   ├── constants.js       # 常量定義
+│   │   ├── utils.js           # 工具函數
+│   │   └── api-client.js      # API 客戶端
+│   └── tests/           # 擴展測試 ✅
+│       └── chrome-extension.test.js
+├── scripts/             # 工具腳本
+│   └── test-chrome-extension.sh   # 擴展測試腳本
+└── docs/                # 文檔
 ```
 
 ## 開發設置
@@ -122,8 +146,14 @@ go test -v ./backend/internal/bookmark/...
 # 收藏夾模塊
 go test -v ./backend/internal/collection/...
 
-# 同步模塊 (Phase 4 新增)
+# 同步模塊
 go test -v ./backend/internal/sync/...
+
+# Chrome 擴展測試 (Phase 5 新增)
+./scripts/test-chrome-extension.sh
+
+# Firefox 擴展測試 (Phase 5 新增)
+./scripts/test-firefox-extension.sh
 ```
 
 運行同步功能測試腳本：
@@ -144,8 +174,9 @@ make coverage
 
 ### 測試覆蓋率
 
-- **總體測試**: 100+ 個測試用例
-- **同步模塊**: 37/37 測試通過 (100% 成功率)
+- **總體測試**: 150+ 個測試用例
+- **後端模塊**: 100+ 測試通過 (100% 成功率)
+- **瀏覽器擴展**: 100+ 測試用例，涵蓋 Chrome 和 Firefox 所有核心功能
 - **核心功能**: 完整的 TDD 測試覆蓋
 
 ### API 端點

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -125,22 +126,27 @@ type Comment struct {
 
 // SyncEvent represents a synchronization event
 type SyncEvent struct {
-	BaseModel
-	UserID       uint   `gorm:"not null;index" json:"user_id"`
-	DeviceID     string `gorm:"not null;index" json:"device_id"`
-	EventType    string `gorm:"not null" json:"event_type"`    // create, update, delete
-	ResourceType string `gorm:"not null" json:"resource_type"` // bookmark, collection, tag
-	ResourceID   uint   `gorm:"not null" json:"resource_id"`
+	ID         uint      `json:"id" gorm:"primaryKey"`
+	Type       string    `json:"type" gorm:"not null"`
+	UserID     string    `json:"user_id" gorm:"not null;index"`
+	ResourceID string    `json:"resource_id" gorm:"not null;index"`
+	Action     string    `json:"action" gorm:"not null"`
+	Data       string    `json:"data" gorm:"type:jsonb"`
+	DeviceID   string    `json:"device_id" gorm:"not null;index"`
+	Status     string    `json:"status" gorm:"default:'pending'"`
+	Timestamp  time.Time `json:"timestamp" gorm:"not null;index"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
 
-	// Change data stored as JSON
-	Changes string `gorm:"type:jsonb" json:"changes,omitempty"`
-
-	// Processing status
-	Processed        bool `gorm:"default:false" json:"processed"`
-	ConflictResolved bool `gorm:"default:false" json:"conflict_resolved"`
-
-	// Relationships
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+// SyncState represents the synchronization state for a device
+type SyncState struct {
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	UserID       string    `json:"user_id" gorm:"not null;index"`
+	DeviceID     string    `json:"device_id" gorm:"not null;index"`
+	LastSyncTime time.Time `json:"last_sync_time" gorm:"not null"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // Follow represents a user following relationship
@@ -180,6 +186,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Collection{},
 		&Comment{},
 		&SyncEvent{},
+		&SyncState{},
 		&Follow{},
 	); err != nil {
 		return fmt.Errorf("failed to run auto migrations: %w", err)
@@ -197,6 +204,7 @@ func AutoMigrate(db *gorm.DB) error {
 func Rollback(db *gorm.DB) error {
 	return db.Migrator().DropTable(
 		&Follow{},
+		&SyncState{},
 		&SyncEvent{},
 		&Comment{},
 		&Collection{},
@@ -234,7 +242,8 @@ func createIndexes(db *gorm.DB) error {
 
 		// Sync event indexes
 		"CREATE INDEX IF NOT EXISTS idx_sync_events_user_device ON sync_events(user_id, device_id)",
-		"CREATE INDEX IF NOT EXISTS idx_sync_events_processed ON sync_events(processed)",
+		"CREATE INDEX IF NOT EXISTS idx_sync_events_status ON sync_events(status)",
+		"CREATE INDEX IF NOT EXISTS idx_sync_events_timestamp ON sync_events(timestamp)",
 		"CREATE INDEX IF NOT EXISTS idx_sync_events_created_at ON sync_events(created_at)",
 
 		// Follow indexes
@@ -422,4 +431,33 @@ func SeedTestData(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// SetupTestDB creates a test database for testing
+func SetupTestDB() (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open test database: %w", err)
+	}
+
+	// Run migrations
+	if err := AutoMigrate(db); err != nil {
+		return nil, fmt.Errorf("failed to migrate test database: %w", err)
+	}
+
+	return db, nil
+}
+
+// CleanupTestDB cleans up the test database
+func CleanupTestDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+
+	return sqlDB.Close()
 }

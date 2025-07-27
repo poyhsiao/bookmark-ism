@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmark Sync - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Bookmark Sync Settings</h1>
+      <p>Configure your bookmark synchronization preferences</p>
+    </header>
+
+    <main class="main">
+      <!-- Account Section -->
+      <section class="section">
+        <h2>Account</h2>
+        <div class="account-info">
+          <div id="account-details" class="account-details hidden">
+            <div class="user-avatar">
+              <img id="user-avatar" src="" alt="User Avatar" class="avatar">
+              <div class="avatar-placeholder">👤</div>
+            </div>
+            <div class="user-info">
+              <h3 id="user-name">User Name</h3>
+              <p id="user-email">user@example.com</p>
+              <p class="user-meta">
+                Member since <span id="user-joined">January 2024</span>
+              </p>
+            </div>
+            <div class="account-actions">
+              <button id="logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
+          </div>
+
+          <div id="login-prompt" class="login-prompt">
+            <p>Please log in to configure your settings.</p>
+            <button id="login-btn" class="btn btn-primary">Login</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sync Settings -->
+      <section class="section">
+        <h2>Synchronization</h2>
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="auto-sync" checked>
+              <span class="checkmark"></span>
+              Enable automatic synchronization
+            </label>
+            <p class="setting-description">
+              Automatically sync bookmarks across all your devices in real-time.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="sync-on-startup" checked>
+              <span class="checkmark"></span>
+              Sync on browser startup
+            </label>
+            <p class="setting-description">
+              Automatically sync bookmarks when you start your browser.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              Sync interval
+            </label>
+            <select id="sync-interval" class="setting-select">
+              <option value="realtime">Real-time</option>
+              <option value="30">Every 30 seconds</option>
+              <option value="60">Every minute</option>
+              <option value="300">Every 5 minutes</option>
+              <option value="900">Every 15 minutes</option>
+            </select>
+            <p class="setting-description">
+              How often to check for bookmark changes.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <div class="sync-status">
+              <span class="status-label">Sync Status:</span>
+              <span id="sync-status" class="status-value offline">Offline</span>
+              <button id="force-sync-btn" class="btn btn-small">Force Sync</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Display Settings -->
+      <section class="section">
+        <h2>Display</h2>
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              Default view mode
+            </label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="view-mode" value="grid" checked>
+                <span class="radio-mark"></span>
+                Grid view
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="view-mode" value="list">
+                <span class="radio-mark"></span>
+                List view
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              Grid size
+            </label>
+            <select id="grid-size" class="setting-select">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              Theme
+            </label>
+            <select id="theme" class="setting-select">
+              <option value="auto" selected>Auto (System)</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="show-favicons" checked>
+              <span class="checkmark"></span>
+              Show website favicons
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="show-descriptions" checked>
+              <span class="checkmark"></span>
+              Show bookmark descriptions
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Privacy Settings -->
+      <section class="section">
+        <h2>Privacy</h2>
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="private-by-default">
+              <span class="checkmark"></span>
+              Make new bookmarks private by default
+            </label>
+            <p class="setting-description">
+              New bookmarks will be private unless explicitly made public.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="analytics-enabled" checked>
+              <span class="checkmark"></span>
+              Enable usage analytics
+            </label>
+            <p class="setting-description">
+              Help improve the extension by sharing anonymous usage data.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data Management -->
+      <section class="section">
+        <h2>Data Management</h2>
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              Cache size limit
+            </label>
+            <select id="cache-limit" class="setting-select">
+              <option value="50">50 bookmarks</option>
+              <option value="100" selected>100 bookmarks</option>
+              <option value="200">200 bookmarks</option>
+              <option value="500">500 bookmarks</option>
+              <option value="unlimited">Unlimited</option>
+            </select>
+            <p class="setting-description">
+              Maximum number of bookmarks to cache locally.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <div class="data-actions">
+              <button id="export-btn" class="btn btn-secondary">Export Bookmarks</button>
+              <button id="import-btn" class="btn btn-secondary">Import Bookmarks</button>
+              <button id="clear-cache-btn" class="btn btn-secondary">Clear Cache</button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="storage-info">
+              <h4>Storage Usage</h4>
+              <div class="storage-bar">
+                <div id="storage-used" class="storage-used" style="width: 25%"></div>
+              </div>
+              <p class="storage-text">
+                <span id="storage-text">2.5 MB used of 10 MB available</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Advanced Settings -->
+      <section class="section">
+        <h2>Advanced</h2>
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              API Server URL
+            </label>
+            <input type="url" id="api-url" class="setting-input" value="http://localhost:8080">
+            <p class="setting-description">
+              URL of your bookmark sync server.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <input type="checkbox" id="debug-mode">
+              <span class="checkmark"></span>
+              Enable debug mode
+            </label>
+            <p class="setting-description">
+              Show detailed logging information in the browser console.
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <div class="advanced-actions">
+              <button id="reset-settings-btn" class="btn btn-danger">Reset All Settings</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>&copy; 2024 Bookmark Sync Service. Version 1.0.0</p>
+      <div class="footer-links">
+        <a href="#" id="help-link">Help</a>
+        <a href="#" id="privacy-link">Privacy Policy</a>
+        <a href="#" id="feedback-link">Send Feedback</a>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Hidden file input for import -->
+  <input type="file" id="import-file" accept=".json,.html" style="display: none;">
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

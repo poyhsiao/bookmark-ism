@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Bookmark Sync Service",
+  "version": "1.0.0",
+  "description": "Cross-browser bookmark synchronization with real-time sync",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "identity",
+    "bookmarks"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "https://api.bookmarksync.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Bookmark Sync"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/page-analyzer.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["popup/*", "options/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
