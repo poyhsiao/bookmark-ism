@@ -289,3 +289,62 @@ func TestStoreBackup(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	})
 }
+
+// TestStoreBucketFile tests bucket-specific file storage
+func TestStoreBucketFile(t *testing.T) {
+	client, mockClient := setupTestClient()
+	ctx := context.Background()
+
+	bucketType := "documents"
+	fileName := "test.pdf"
+	data := []byte("fake pdf data")
+	contentType := "application/pdf"
+	expectedObjectName := "documents/test.pdf"
+
+	t.Run("Store Bucket File Successfully", func(t *testing.T) {
+		uploadInfo := minio.UploadInfo{
+			Bucket:       "test-bucket",
+			Key:          expectedObjectName,
+			ETag:         "test-etag",
+			Size:         int64(len(data)),
+			LastModified: time.Now(),
+		}
+
+		mockClient.On("PutObject", ctx, "test-bucket", expectedObjectName, mock.Anything, int64(len(data)), mock.Anything).
+			Return(uploadInfo, nil).Once()
+
+		url, err := client.StoreBucketFile(ctx, bucketType, fileName, data, contentType)
+		assert.NoError(t, err)
+		assert.Equal(t, "/storage/documents/test.pdf", url)
+
+		mockClient.AssertExpectations(t)
+	})
+}
+
+// TestGetBucketFiles tests listing files in a bucket directory
+func TestGetBucketFiles(t *testing.T) {
+	client, mockClient := setupTestClient()
+	ctx := context.Background()
+
+	bucketType := "screenshots"
+	expectedFiles := []string{"screenshots/file1.jpg", "screenshots/file2.png"}
+
+	t.Run("Get Bucket Files Successfully", func(t *testing.T) {
+		objectCh := make(chan minio.ObjectInfo, 2)
+		go func() {
+			defer close(objectCh)
+			objectCh <- minio.ObjectInfo{Key: "screenshots/file1.jpg"}
+			objectCh <- minio.ObjectInfo{Key: "screenshots/file2.png"}
+		}()
+
+		mockClient.On("ListObjects", ctx, "test-bucket", mock.MatchedBy(func(opts minio.ListObjectsOptions) bool {
+			return opts.Prefix == "screenshots/"
+		})).Return((<-chan minio.ObjectInfo)(objectCh)).Once()
+
+		files, err := client.GetBucketFiles(ctx, bucketType)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedFiles, files)
+
+		mockClient.AssertExpectations(t)
+	})
+}

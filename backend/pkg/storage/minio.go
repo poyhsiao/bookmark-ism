@@ -4,11 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"bookmark-sync-service/backend/internal/config"
 
+	"github.com/disintegration/imaging"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -158,4 +164,127 @@ func (c *Client) StoreBackup(ctx context.Context, userID string, data []byte) (s
 		return "", err
 	}
 	return url, nil
+}
+
+// ImageOptimizationOptions defines options for image optimization
+type ImageOptimizationOptions struct {
+	MaxWidth      int
+	MaxHeight     int
+	Quality       int
+	Format        string // "jpeg", "png", "webp"
+	Thumbnail     bool
+	ThumbnailSize int
+}
+
+// OptimizeAndStoreImage optimizes an image and stores it with optional thumbnail
+func (c *Client) OptimizeAndStoreImage(ctx context.Context, objectName string, imageData []byte, opts ImageOptimizationOptions) (string, string, error) {
+	// Decode the image
+	img, format, err := image.Decode(bytes.NewReader(imageData))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Resize if needed
+	if opts.MaxWidth > 0 || opts.MaxHeight > 0 {
+		img = imaging.Fit(img, opts.MaxWidth, opts.MaxHeight, imaging.Lanczos)
+	}
+
+	// Encode optimized image
+	var optimizedData bytes.Buffer
+	var contentType string
+
+	switch strings.ToLower(opts.Format) {
+	case "jpeg", "jpg":
+		quality := opts.Quality
+		if quality == 0 {
+			quality = 85 // Default quality
+		}
+		err = jpeg.Encode(&optimizedData, img, &jpeg.Options{Quality: quality})
+		contentType = "image/jpeg"
+	case "png":
+		err = png.Encode(&optimizedData, img)
+		contentType = "image/png"
+	default:
+		// Use original format
+		switch format {
+		case "jpeg":
+			quality := opts.Quality
+			if quality == 0 {
+				quality = 85
+			}
+			err = jpeg.Encode(&optimizedData, img, &jpeg.Options{Quality: quality})
+			contentType = "image/jpeg"
+		case "png":
+			err = png.Encode(&optimizedData, img)
+			contentType = "image/png"
+		default:
+			return "", "", fmt.Errorf("unsupported image format: %s", format)
+		}
+	}
+
+	if err != nil {
+		return "", "", fmt.Errorf("failed to encode optimized image: %w", err)
+	}
+
+	// Store optimized image
+	mainURL, err := c.UploadFile(ctx, objectName, optimizedData.Bytes(), contentType)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to store optimized image: %w", err)
+	}
+
+	var thumbnailURL string
+	// Create and store thumbnail if requested
+	if opts.Thumbnail {
+		thumbnailSize := opts.ThumbnailSize
+		if thumbnailSize == 0 {
+			thumbnailSize = 200 // Default thumbnail size
+		}
+
+		thumbnail := imaging.Fit(img, thumbnailSize, thumbnailSize, imaging.Lanczos)
+
+		var thumbnailData bytes.Buffer
+		err = jpeg.Encode(&thumbnailData, thumbnail, &jpeg.Options{Quality: 80})
+		if err != nil {
+			return mainURL, "", fmt.Errorf("failed to encode thumbnail: %w", err)
+		}
+
+		// Generate thumbnail object name
+		ext := filepath.Ext(objectName)
+		nameWithoutExt := strings.TrimSuffix(objectName, ext)
+		thumbnailObjectName := fmt.Sprintf("%s_thumb%s", nameWithoutExt, ext)
+
+		thumbnailURL, err = c.UploadFile(ctx, thumbnailObjectName, thumbnailData.Bytes(), "image/jpeg")
+		if err != nil {
+			return mainURL, "", fmt.Errorf("failed to store thumbnail: %w", err)
+		}
+	}
+
+	return mainURL, thumbnailURL, nil
+}
+
+// StoreOptimizedScreenshot stores an optimized screenshot with thumbnail
+func (c *Client) StoreOptimizedScreenshot(ctx context.Context, bookmarkID string, imageData []byte) (string, string, error) {
+	objectName := fmt.Sprintf("screenshots/%s.jpg", bookmarkID)
+
+	opts := ImageOptimizationOptions{
+		MaxWidth:      1200,
+		MaxHeight:     800,
+		Quality:       85,
+		Format:        "jpeg",
+		Thumbnail:     true,
+		ThumbnailSize: 300,
+	}
+
+	return c.OptimizeAndStoreImage(ctx, objectName, imageData, opts)
+}
+
+// StoreBucketFile stores a file in a specific bucket directory
+func (c *Client) StoreBucketFile(ctx context.Context, bucketType, fileName string, data []byte, contentType string) (string, error) {
+	objectName := fmt.Sprintf("%s/%s", bucketType, fileName)
+	return c.UploadFile(ctx, objectName, data, contentType)
+}
+
+// GetBucketFiles lists files in a specific bucket directory
+func (c *Client) GetBucketFiles(ctx context.Context, bucketType string) ([]string, error) {
+	return c.ListFiles(ctx, bucketType+"/")
 }
