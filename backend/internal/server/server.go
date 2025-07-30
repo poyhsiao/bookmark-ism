@@ -10,10 +10,10 @@ import (
 	"bookmark-sync-service/backend/internal/bookmark"
 	"bookmark-sync-service/backend/internal/collection"
 	"bookmark-sync-service/backend/internal/config"
+	"bookmark-sync-service/backend/internal/search"
 	"bookmark-sync-service/backend/internal/user"
 	"bookmark-sync-service/backend/pkg/middleware"
 	"bookmark-sync-service/backend/pkg/redis"
-	"bookmark-sync-service/backend/pkg/search"
 	"bookmark-sync-service/backend/pkg/storage"
 	"bookmark-sync-service/backend/pkg/supabase"
 	"bookmark-sync-service/backend/pkg/utils"
@@ -31,7 +31,7 @@ type Server struct {
 	redisClient       *redis.Client
 	supabaseClient    *supabase.Client
 	storageClient     *storage.Client
-	searchClient      *search.Client
+	searchClient      *searchpkg.Client
 	logger            *zap.Logger
 	router            *gin.Engine
 	httpServer        *http.Server
@@ -40,10 +40,11 @@ type Server struct {
 	userHandler       *user.Handler
 	bookmarkHandler   *bookmark.Handlers
 	collectionHandler *collection.Handler
+	searchHandler     *search.Handlers
 }
 
 // NewServer creates a new server instance
-func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supabaseClient *supabase.Client, storageClient *storage.Client, searchClient *search.Client, logger *zap.Logger) *Server {
+func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supabaseClient *supabase.Client, storageClient *storage.Client, searchClient *searchpkg.Client, logger *zap.Logger) *Server {
 	// Set Gin mode based on environment
 	if cfg.Server.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -68,6 +69,18 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 	collectionService := collection.NewService(db)
 	collectionHandler := collection.NewHandler(collectionService)
 
+	// Create search service and handler
+	searchService, err := search.NewService(cfg.Search)
+	if err != nil {
+		logger.Error("Failed to create search service", zap.Error(err))
+		// Continue without search service for now
+		searchService = nil
+	}
+	var searchHandler *search.Handlers
+	if searchService != nil {
+		searchHandler = search.NewHandlers(searchService)
+	}
+
 	server := &Server{
 		config:            cfg,
 		db:                db,
@@ -82,6 +95,7 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 		userHandler:       userHandler,
 		bookmarkHandler:   bookmarkHandler,
 		collectionHandler: collectionHandler,
+		searchHandler:     searchHandler,
 	}
 
 	server.setupMiddleware()
@@ -188,13 +202,17 @@ func (s *Server) setupRoutes() {
 			}
 
 			// Search routes
-			search := public.Group("/search")
-			{
-				search.GET("/bookmarks", s.placeholder)
-				search.GET("/collections", s.placeholder)
-				search.GET("/users", s.placeholder)
-				search.GET("/suggest", s.placeholder)
-				search.GET("/tags", s.placeholder)
+			if s.searchHandler != nil {
+				s.searchHandler.RegisterRoutes(public)
+			} else {
+				search := public.Group("/search")
+				{
+					search.GET("/bookmarks", s.placeholder)
+					search.GET("/collections", s.placeholder)
+					search.GET("/users", s.placeholder)
+					search.GET("/suggest", s.placeholder)
+					search.GET("/tags", s.placeholder)
+				}
 			}
 		}
 
