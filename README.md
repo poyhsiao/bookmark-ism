@@ -6,6 +6,7 @@ A self-hosted multi-user bookmark synchronization service that provides cross-br
 
 - **Cross-browser sync**: Real-time bookmark synchronization across all major browsers
 - **Advanced search**: Multi-field search with Chinese language support and intelligent suggestions
+- **Import/Export**: Seamless bookmark migration from Chrome, Firefox, and Safari with data preservation
 - **Visual interface**: Grid-based bookmark management with preview thumbnails
 - **Social features**: Public collections, community discovery, and collaborative bookmarking
 - **Intelligent organization**: Search-powered tagging, categorization, and content discovery
@@ -173,6 +174,15 @@ make prod-down     # Stop production environment
 - `GET /api/v1/search/health` - Search service health check
 - `POST /api/v1/search/initialize` - Initialize search collections
 
+### Import/Export ✅ IMPLEMENTED
+- `POST /api/v1/import-export/import/chrome` - Import Chrome bookmarks from JSON format
+- `POST /api/v1/import-export/import/firefox` - Import Firefox bookmarks from HTML format
+- `POST /api/v1/import-export/import/safari` - Import Safari bookmarks from plist format
+- `GET /api/v1/import-export/import/progress/:jobId` - Get import progress status
+- `GET /api/v1/import-export/export/json` - Export bookmarks to structured JSON
+- `GET /api/v1/import-export/export/html` - Export bookmarks to HTML (Netscape format)
+- `POST /api/v1/import-export/detect-duplicates` - Detect duplicate URLs before import
+
 ## Configuration
 
 The application can be configured using environment variables or a YAML configuration file. See `.env.example` and `config/config.yaml` for available options.
@@ -292,13 +302,23 @@ This project has successfully completed 7 major phases with comprehensive functi
 - ✅ Search performance optimization with sub-millisecond responses
 - ✅ Comprehensive test suite with TDD methodology
 
+**✅ Phase 7: Import/Export and Data Migration (100% Complete)**
+- ✅ Multi-browser bookmark import (Chrome JSON, Firefox HTML, Safari plist)
+- ✅ Data preservation with folder structure and metadata maintenance
+- ✅ Export functionality with JSON and HTML formats
+- ✅ Duplicate detection and prevention during import
+- ✅ Progress tracking framework for large operations
+- ✅ Comprehensive error handling and user feedback
+- ✅ Security validation for file uploads and processing
+- ✅ Redis infrastructure improvements and method consistency
+
 **🚧 Next Steps (Phase 8: Offline Support & Safari Extension)**
-- 🚧 Import/export functionality for bookmark migration
 - 🚧 Comprehensive offline support with local caching
 - 🚧 Safari extension development
 - 🚧 Advanced content analysis and intelligent organization
+- 🚧 Link monitoring and maintenance features
 
-**Current Progress: 14/31 tasks completed (45.2%)**
+**Current Progress: 15/31 tasks completed (48.4%)**
 
 ## Contributing
 

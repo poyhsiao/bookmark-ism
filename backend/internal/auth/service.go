@@ -216,7 +216,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *RefreshRequest) (*AuthR
 	userID := uint(userIDFloat)
 
 	// Check if refresh token exists in Redis
-	storedToken, err := s.redisClient.Get(ctx, fmt.Sprintf("refresh_token:%d", userID)).Result()
+	storedToken, err := s.redisClient.GetString(ctx, fmt.Sprintf("refresh_token:%d", userID))
 	if err != nil || storedToken != req.RefreshToken {
 		return nil, fmt.Errorf("refresh token not found or expired")
 	}
@@ -258,7 +258,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *RefreshRequest) (*AuthR
 // Logout logs out a user
 func (s *Service) Logout(ctx context.Context, userID uint) error {
 	// Remove refresh token from Redis
-	if err := s.redisClient.Del(ctx, fmt.Sprintf("refresh_token:%d", userID)).Err(); err != nil {
+	if err := s.redisClient.Delete(ctx, fmt.Sprintf("refresh_token:%d", userID)); err != nil {
 		s.logger.Warn("Failed to remove refresh token from Redis", zap.Error(err), zap.Uint("user_id", userID))
 	}
 
@@ -368,5 +368,5 @@ func (s *Service) generateTokens(user *database.User) (string, string, error) {
 // storeRefreshToken stores refresh token in Redis
 func (s *Service) storeRefreshToken(ctx context.Context, userID uint, token string) error {
 	key := fmt.Sprintf("refresh_token:%d", userID)
-	return s.redisClient.Set(ctx, key, token, 7*24*time.Hour).Err()
+	return s.redisClient.SetWithExpiration(ctx, key, token, 7*24*time.Hour)
 }

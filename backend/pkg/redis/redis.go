@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -57,7 +58,11 @@ func (c *Client) Publish(ctx context.Context, channel string, message interface{
 
 // PublishJSON publishes a JSON message to a Redis channel
 func (c *Client) PublishJSON(ctx context.Context, channel string, message interface{}) error {
-	return c.Client.Publish(ctx, channel, message).Err()
+	jsonData, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message to JSON: %w", err)
+	}
+	return c.Client.Publish(ctx, channel, jsonData).Err()
 }
 
 // SubscribeToSyncEvents subscribes to bookmark sync events
