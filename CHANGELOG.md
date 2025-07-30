@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Phase 7: Import/Export and Data Migration System ✅ COMPLETED
+
 - **Multi-Browser Import Support**: Complete bookmark import from Chrome JSON, Firefox HTML, and Safari plist formats
 - **Data Preservation**: Maintains folder structure, metadata, and bookmark relationships during import
 - **Export Functionality**: JSON and HTML export formats for data portability and backup
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Handling**: Comprehensive error collection and detailed user feedback
 
 #### Phase 7: Import/Export API Endpoints
+
 - **POST /api/v1/import-export/import/chrome**: Import Chrome bookmarks from JSON format
 - **POST /api/v1/import-export/import/firefox**: Import Firefox bookmarks from HTML format
 - **POST /api/v1/import-export/import/safari**: Import Safari bookmarks from plist format
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **POST /api/v1/import-export/detect-duplicates**: Detect duplicate URLs before import
 
 #### Phase 7: Import/Export Features
+
 - **Chrome Format Support**: Full JSON structure parsing with nested folder hierarchy
 - **Firefox Format Support**: HTML parsing with regex-based bookmark and folder extraction
 - **Safari Format Support**: Basic plist XML parsing for bookmark data extraction
@@ -39,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User Isolation**: Import/export operations scoped to authenticated user only
 
 #### Phase 7: Technical Implementation
+
 - **Service Layer**: Comprehensive import/export service with validation and business logic
 - **HTTP Handlers**: RESTful API endpoints with proper file upload handling
 - **Format Parsers**: Dedicated parsers for Chrome JSON, Firefox HTML, and Safari plist
@@ -49,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Server Integration**: Seamless integration with main server and authentication system
 
 #### Phase 7: Redis Infrastructure Improvements ✅ COMPLETED
+
 - **Redis Client Wrapper**: Enhanced Redis client with proper method abstraction
 - **Authentication Service**: Fixed Redis method calls in auth service for token management
 - **Session Management**: Proper refresh token storage and retrieval with Redis
@@ -61,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 #### Redis Integration Issues
+
 - **Auth Service**: Fixed incorrect Redis method calls in authentication service
   - Changed `s.redisClient.Get()` to `s.redisClient.GetString()`
   - Changed `s.redisClient.Del().Err()` to `s.redisClient.Delete()`
@@ -70,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Method Abstraction**: Ensured all Redis operations use the custom client wrapper methods
 
 #### Phase 7: Search and Discovery System ✅ COMPLETED
+
 - **Typesense Search Integration**: Complete search engine integration with Chinese language support
 - **Advanced Search Functionality**: Multi-field search across titles, URLs, descriptions, and tags
 - **Chinese Language Support**: Full Traditional and Simplified Chinese tokenization and search
@@ -80,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-language Search**: Seamless English-Chinese mixed content search capabilities
 
 #### Phase 7: Search API Endpoints
+
 - **GET /api/v1/search/bookmarks**: Basic bookmark search with query, pagination, and filtering
 - **POST /api/v1/search/bookmarks/advanced**: Advanced search with complex filters and sorting
 - **GET /api/v1/search/collections**: Collection search with metadata filtering
@@ -94,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **POST /api/v1/search/initialize**: Initialize search collections and schema
 
 #### Phase 7: Search Features
+
 - **Multi-field Search**: Weighted search across title (4x), description (3x), URL (2x), and tags (1x)
 - **Chinese Tokenization**: Proper Chinese word segmentation with punctuation handling
 - **Typo Tolerance**: Intelligent handling of typos with configurable tolerance levels
@@ -104,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User Isolation**: Search results filtered by user ownership for data privacy
 
 #### Phase 7: Technical Implementation
+
 - **Typesense Client**: Enhanced client with Chinese language schema configuration
 - **Search Service Layer**: Comprehensive search service with validation and error handling
 - **Index Management**: Automatic collection creation with Chinese locale support
@@ -114,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Server Integration**: Seamless integration with main server and authentication system
 
 #### Phase 7: Search Configuration
+
 - **Chinese Language Schema**: Typesense collections with Chinese locale support
 - **Token Separators**: Chinese punctuation marks (，。！？；：) as word boundaries
 - **Multi-language Indexing**: Simultaneous English and Chinese content indexing
@@ -124,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sorting**: Multiple sort options with relevance, date, and alphabetical ordering
 
 #### Phase 7: Impact and Benefits
+
 - **User Experience**: Dramatically improved bookmark discovery and organization
 - **Performance**: Sub-millisecond search responses enhance user productivity
 - **Accessibility**: Chinese language support opens the platform to Chinese-speaking users
@@ -132,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cross-language**: Seamless search experience for multilingual bookmark collections
 
 #### Phase 6: Enhanced UI & Storage System ✅ COMPLETED
+
 - **MinIO Storage Integration**: Complete S3-compatible storage system with bucket management
 - **Screenshot Capture Service**: Automated webpage screenshot generation with thumbnail creation
 - **Image Optimization Pipeline**: Configurable image quality, format conversion, and compression
@@ -143,20 +156,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Favicon Fallback System**: Automatic favicon retrieval when screenshots fail
 
 #### Phase 6: Storage API Endpoints
+
 - **POST /api/v1/storage/screenshot**: Upload and optimize screenshot images
 - **POST /api/v1/storage/avatar**: Upload user avatar with format validation
 - **POST /api/v1/storage/file-url**: Generate presigned URLs for secure file access
 - **DELETE /api/v1/storage/file**: Delete files from MinIO storage
 - **GET /api/v1/storage/health**: Storage service health monitoring
-- **GET /api/v1/storage/file/*path**: Direct file serving with redirect
+- **GET /api/v1/storage/file/\*path**: Direct file serving with redirect
 
 #### Phase 6: Screenshot API Endpoints
+
 - **POST /api/v1/screenshot/capture**: Capture webpage screenshots with options
 - **PUT /api/v1/screenshot/bookmark/:id**: Update existing bookmark screenshots
 - **POST /api/v1/screenshot/favicon**: Extract and serve website favicons
 - **POST /api/v1/screenshot/url**: Direct URL-to-screenshot conversion
 
 #### Phase 6: Visual Grid Features
+
 - **Multiple Grid Sizes**: Small (200px), Medium (280px), Large (400px) card layouts
 - **Responsive Breakpoints**: Automatic mobile adaptation with single-column layout
 - **Sorting Options**: Sort by creation date, update date, title, or URL
@@ -166,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Local Storage**: Grid preferences persistence across sessions
 
 #### Phase 6: Technical Implementation
+
 - **MinIO Client**: Enhanced S3-compatible client with connection pooling
 - **Image Processing**: Integration with disintegration/imaging library for optimization
 - **Storage Service Layer**: Clean abstraction for all storage operations
@@ -176,6 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance Optimization**: Efficient image loading and caching strategies
 
 #### Phase 5: Browser Extensions MVP (Chrome + Firefox) ✅ COMPLETED
+
 - **Chrome Extension Structure**: Complete Chrome extension implementation with Manifest V3 support
 - **Firefox Extension Structure**: Complete Firefox extension implementation with Manifest V2 support
 - **Cross-browser Compatibility**: Universal browser API layer supporting both Chrome and Firefox
@@ -190,6 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Offline Support**: Local bookmark caching with automatic sync when connectivity is restored
 
 #### Phase 5: Extension Features
+
 - **Real-time Sync**: WebSocket integration with backend for instant bookmark synchronization
 - **Visual Interface**: Grid and list view modes with search, filtering, and sorting capabilities
 - **User Authentication**: Seamless login/register with error handling and session management
@@ -200,6 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cross-tab Communication**: Message passing between extension components
 
 #### Phase 5: Technical Implementation
+
 - **Manifest V3**: Modern Chrome extension architecture with service workers
 - **Modular Design**: Separated managers for authentication, sync, and storage operations
 - **Error Handling**: Comprehensive error handling with user-friendly messages
@@ -213,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Build Tools**: Integration with web-ext for Firefox extension validation and building
 
 #### Phase 5: Extension API Integration
+
 - **Chrome APIs**: Full integration with storage, tabs, contextMenus, and notifications APIs
 - **WebSocket Communication**: Real-time bidirectional communication with backend services
 - **Local Storage**: Efficient bookmark caching with automatic expiration and cleanup
@@ -222,6 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Phase 4: Cross-Browser Synchronization System ✅ COMPLETED
+
 - **WebSocket Real-time Sync**: Gorilla WebSocket-based synchronization with connection management
 - **Device Registration**: Automatic device identification and sync state management
 - **Delta Synchronization**: Efficient data transfer using timestamp-based filtering
@@ -235,6 +257,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync History**: Comprehensive event tracking and history management
 
 #### Phase 4: Sync API Endpoints
+
 - **GET /api/v1/sync/state**: Retrieve sync state for a device with automatic creation
 - **PUT /api/v1/sync/state**: Update sync state with last sync timestamp
 - **GET /api/v1/sync/delta**: Get delta sync events with timestamp filtering
@@ -245,6 +268,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **WebSocket /ws**: Real-time sync communication with message routing
 
 #### Phase 4: Technical Implementation
+
 - **Database Models**: SyncEvent and SyncState models with proper indexing
 - **WebSocket Integration**: Sync service integration with WebSocket message handling
 - **Event Optimization**: OptimizeEvents function merging multiple events per resource
@@ -255,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Collection Management System
+
 - **Collection CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmark collections
 - **Hierarchical Structure**: Parent-child collection relationships for folder-like organization
 - **Collection Sharing**: Private, public, and shared collections with unique share links
@@ -264,6 +289,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bookmark Management**: Add/remove bookmarks to/from collections with proper validation
 
 #### Collection API Endpoints
+
 - **POST /api/v1/collections**: Create new collections with metadata and sharing settings
 - **GET /api/v1/collections**: List collections with filtering, search, and pagination
 - **GET /api/v1/collections/:id**: Retrieve individual collections with access control
@@ -274,6 +300,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GET /api/v1/collections/:id/bookmarks**: List bookmarks within a collection
 
 #### Collection Features
+
 - **Share Link Generation**: Unique cryptographic share links for collection sharing
 - **Access Control**: User-based authorization with public collection access
 - **Hierarchical Organization**: Support for nested collections and folder structures
@@ -282,6 +309,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sorting Options**: Multiple sorting fields (created_at, updated_at, name) with order control
 
 #### Bookmark Management System
+
 - **Bookmark CRUD Operations**: Complete Create, Read, Update, Delete functionality for bookmarks
 - **Service Layer**: Comprehensive bookmark service with validation and business logic
 - **HTTP Handlers**: RESTful API endpoints for bookmark management with proper error handling
@@ -291,6 +319,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Soft Delete**: Safe bookmark deletion with recovery capabilities
 
 #### Enhanced Testing Infrastructure
+
 - **Collection Test Suite**: Comprehensive TDD test coverage for collection management
 - **Service Layer Tests**: Unit tests for all collection business logic and validation
 - **Handler Integration Tests**: HTTP endpoint testing with mock authentication
@@ -299,6 +328,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test Utilities**: Reusable test helpers and database setup functions
 
 #### API Endpoints
+
 - **POST /api/v1/bookmarks**: Create new bookmarks with metadata and tags
 - **GET /api/v1/bookmarks/:id**: Retrieve individual bookmarks with user authorization
 - **PUT /api/v1/bookmarks/:id**: Update bookmark properties and metadata
@@ -306,6 +336,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GET /api/v1/bookmarks**: List bookmarks with search, filtering, and pagination
 
 #### Technical Implementation
+
 - **GORM Associations**: Many-to-many bookmark-collection relationships with proper foreign keys
 - **Share Link Security**: Cryptographically secure random share link generation
 - **Query Optimization**: Efficient database queries with proper indexing and pagination
@@ -321,6 +352,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Backend Infrastructure
+
 - **Go Backend Framework**: Implemented using Gin web framework with modular architecture
 - **Database Layer**: Integrated self-hosted Supabase PostgreSQL with GORM ORM
 - **Caching System**: Redis integration with pub/sub for real-time synchronization
@@ -330,6 +362,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Real-time Communication**: WebSocket support using Gorilla WebSocket library
 
 #### Database Schema
+
 - **User Management**: Complete user authentication and profile system
 - **Bookmark Models**: Comprehensive bookmark data structure with metadata
 - **Collection System**: Bookmark organization with collections and tags
@@ -337,30 +370,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Migration System**: Versioned database migrations with rollback support
 
 #### API Architecture
+
 - **RESTful API**: Well-structured API endpoints following REST principles
 - **Middleware Stack**: Authentication, CORS, logging, and error handling
 - **Response Utilities**: Standardized API response format and error handling
 - **Health Checks**: Comprehensive service health monitoring endpoints
 
 #### Development Environment
+
 - **Docker Containerization**: Complete Docker Compose setup for development
 - **Production Deployment**: Optimized Docker Compose configuration for production
 - **Load Balancing**: Nginx configuration for reverse proxy and load balancing
 - **Service Discovery**: Inter-service communication and health monitoring
 
 #### Infrastructure Components
+
 - **Configuration Management**: Environment-based configuration with validation
 - **Logging System**: Structured logging with configurable output formats
 - **Monitoring**: Health check scripts and service status monitoring
 - **Security**: JWT authentication, CORS handling, and secure defaults
 
 #### Development Tools
+
 - **Build System**: Makefile with common development tasks
 - **Setup Scripts**: Automated development environment initialization
 - **Database Tools**: Migration runner and database management utilities
 - **Testing Framework**: Test structure and utilities setup
 
 #### Documentation
+
 - **Project Specifications**: Comprehensive requirements and design documentation
 - **API Documentation**: Detailed API endpoint documentation
 - **Deployment Guides**: Step-by-step deployment instructions
@@ -369,6 +407,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Specifications
 
 #### Backend Stack
+
 - **Language**: Go 1.21.1 with modern toolchain
 - **Web Framework**: Gin v1.9.1 for HTTP routing and middleware
 - **Database**: PostgreSQL via Supabase with GORM v1.25.5
@@ -378,12 +417,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **WebSocket**: Gorilla WebSocket for real-time communication
 
 #### Infrastructure
+
 - **Containerization**: Docker with multi-stage builds
 - **Orchestration**: Docker Compose for service management
 - **Reverse Proxy**: Nginx 1.25-alpine for load balancing
 - **Monitoring**: Prometheus-ready metrics and health endpoints
 
 #### Security Features
+
 - **Authentication**: JWT-based authentication with refresh tokens
 - **Authorization**: Role-based access control (RBAC)
 - **Data Protection**: Environment-based secrets management
@@ -391,6 +432,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SSL/TLS**: HTTPS support with certificate management
 
 #### Development Features
+
 - **Hot Reload**: Development server with automatic restart
 - **Code Quality**: Linting and formatting tools integration
 - **Testing**: Unit and integration test framework
@@ -399,12 +441,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Configuration
 
 #### Environment Variables
+
 - Complete environment configuration for all services
 - Separate configurations for development and production
 - Secure defaults and validation for all settings
 - OAuth provider integration (GitHub, Google) ready
 
 #### Service Configuration
+
 - **Database**: Connection pooling and performance optimization
 - **Redis**: Clustering and persistence configuration
 - **Search**: Index management and query optimization
@@ -414,6 +458,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Project Structure
 
 #### Backend Organization
+
 ```
 backend/
 ├── cmd/           # Application entry points (api, migrate, sync, worker)
@@ -423,6 +468,7 @@ backend/
 ```
 
 #### Infrastructure Setup
+
 ```
 ├── docker-compose.yml      # Development environment
 ├── docker-compose.prod.yml # Production environment
@@ -432,6 +478,7 @@ backend/
 ```
 
 #### Documentation Structure
+
 ```
 ├── .kiro/specs/           # Feature specifications and requirements
 ├── .kiro/steering/        # AI assistant guidance and standards
@@ -441,12 +488,14 @@ backend/
 ### Development Workflow
 
 #### Setup Process
+
 1. **Environment Initialization**: Automated setup script for dependencies
 2. **Service Startup**: One-command Docker Compose environment
 3. **Database Migration**: Automatic schema setup and seeding
 4. **Health Verification**: Comprehensive service health checks
 
 #### Build Process
+
 1. **Dependency Management**: Go modules with version pinning
 2. **Code Generation**: Automatic model and API generation
 3. **Testing Pipeline**: Unit and integration test execution
@@ -455,16 +504,19 @@ backend/
 ### Future Roadmap
 
 #### Browser Extensions (Planned)
+
 - Chrome, Firefox, and Safari extension development
 - Cross-browser bookmark synchronization
 - Real-time sync with backend services
 
 #### Web Interface (Planned)
+
 - Responsive web application with grid-based UI
 - Progressive Web App (PWA) capabilities
 - Mobile-optimized bookmark management
 
 #### Advanced Features (Planned)
+
 - AI-powered bookmark categorization
 - Duplicate detection and cleanup
 - Community discovery and sharing

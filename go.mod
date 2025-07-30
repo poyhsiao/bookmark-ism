@@ -5,6 +5,8 @@ go 1.21.1
 toolchain go1.24.5
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -31,7 +33,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deepmap/oapi-codegen v1.12.3 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
@@ -78,6 +79,7 @@ require (
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect

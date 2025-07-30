@@ -10,10 +10,12 @@ import (
 	"bookmark-sync-service/backend/internal/bookmark"
 	"bookmark-sync-service/backend/internal/collection"
 	"bookmark-sync-service/backend/internal/config"
+	import_export "bookmark-sync-service/backend/internal/import"
 	"bookmark-sync-service/backend/internal/search"
 	"bookmark-sync-service/backend/internal/user"
 	"bookmark-sync-service/backend/pkg/middleware"
 	"bookmark-sync-service/backend/pkg/redis"
+	searchpkg "bookmark-sync-service/backend/pkg/search"
 	"bookmark-sync-service/backend/pkg/storage"
 	"bookmark-sync-service/backend/pkg/supabase"
 	"bookmark-sync-service/backend/pkg/utils"
@@ -26,21 +28,22 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	config            *config.Config
-	db                *gorm.DB
-	redisClient       *redis.Client
-	supabaseClient    *supabase.Client
-	storageClient     *storage.Client
-	searchClient      *searchpkg.Client
-	logger            *zap.Logger
-	router            *gin.Engine
-	httpServer        *http.Server
-	wsHub             *websocket.Hub
-	authHandler       *auth.Handler
-	userHandler       *user.Handler
-	bookmarkHandler   *bookmark.Handlers
-	collectionHandler *collection.Handler
-	searchHandler     *search.Handlers
+	config              *config.Config
+	db                  *gorm.DB
+	redisClient         *redis.Client
+	supabaseClient      *supabase.Client
+	storageClient       *storage.Client
+	searchClient        *searchpkg.Client
+	logger              *zap.Logger
+	router              *gin.Engine
+	httpServer          *http.Server
+	wsHub               *websocket.Hub
+	authHandler         *auth.Handler
+	userHandler         *user.Handler
+	bookmarkHandler     *bookmark.Handlers
+	collectionHandler   *collection.Handler
+	searchHandler       *search.Handlers
+	importExportHandler *import_export.Handlers
 }
 
 // NewServer creates a new server instance
@@ -81,21 +84,26 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 		searchHandler = search.NewHandlers(searchService)
 	}
 
+	// Create import/export service and handler
+	importExportService := import_export.NewService(db)
+	importExportHandler := import_export.NewHandlers(importExportService)
+
 	server := &Server{
-		config:            cfg,
-		db:                db,
-		redisClient:       redisClient,
-		supabaseClient:    supabaseClient,
-		storageClient:     storageClient,
-		searchClient:      searchClient,
-		logger:            logger,
-		router:            gin.New(),
-		wsHub:             wsHub,
-		authHandler:       authHandler,
-		userHandler:       userHandler,
-		bookmarkHandler:   bookmarkHandler,
-		collectionHandler: collectionHandler,
-		searchHandler:     searchHandler,
+		config:              cfg,
+		db:                  db,
+		redisClient:         redisClient,
+		supabaseClient:      supabaseClient,
+		storageClient:       storageClient,
+		searchClient:        searchClient,
+		logger:              logger,
+		router:              gin.New(),
+		wsHub:               wsHub,
+		authHandler:         authHandler,
+		userHandler:         userHandler,
+		bookmarkHandler:     bookmarkHandler,
+		collectionHandler:   collectionHandler,
+		searchHandler:       searchHandler,
+		importExportHandler: importExportHandler,
 	}
 
 	server.setupMiddleware()
@@ -150,6 +158,9 @@ func (s *Server) setupRoutes() {
 
 			// Register collection routes
 			s.collectionHandler.RegisterRoutes(protected)
+
+			// Register import/export routes
+			s.importExportHandler.RegisterRoutes(protected)
 
 			// Sync routes
 			sync := protected.Group("/sync")
