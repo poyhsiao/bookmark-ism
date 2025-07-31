@@ -260,7 +260,7 @@ jobs:
         fi
 
     - name: Upload performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-results
         path: |
@@ -423,7 +423,7 @@ jobs:
         EOF
 
     - name: Upload database performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: database-performance-results
         path: db-performance-report.md
@@ -510,7 +510,7 @@ jobs:
         fi > resource-report.md
 
     - name: Upload resource usage results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: resource-usage-results
         path: |
@@ -534,7 +534,7 @@ jobs:
 
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Generate summary report
       run: |
@@ -574,7 +574,7 @@ jobs:
         echo "- Resource usage data available in artifacts" >> performance-summary.md
 
     - name: Upload summary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-summary
         path: performance-summary.md
