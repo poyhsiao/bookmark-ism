@@ -7,20 +7,21 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 
 # Download dependencies
-RUN go mod download
+RUN go mod download && go mod verify
 
-# Copy source code
+# Copy entire source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Verify the target directory exists and build
+RUN ls -la backend/cmd/api/ && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o main ./cmd/api
+    -o main ./backend/cmd/api
 
 # Final stage
 FROM alpine:3.18
@@ -38,8 +39,8 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /app/main .
 
-# Copy configuration files if needed
-COPY --from=builder /app/config ./config
+# Copy configuration files if needed (optional)
+# COPY --from=builder /app/config ./config
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app

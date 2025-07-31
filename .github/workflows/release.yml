@@ -192,7 +192,7 @@ jobs:
         # Build binary
         CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
         go build -ldflags "$LDFLAGS" -o bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
-        ./cmd/api
+        ./backend/cmd/api
 
     - name: Create archive
       run: |
