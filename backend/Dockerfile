@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o main ./cmd/api
+    -o main ./backend/cmd/api
 
 # Final stage
 FROM alpine:3.18
@@ -38,8 +38,8 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /app/main .
 
-# Copy configuration files if needed
-COPY --from=builder /app/config ./config
+# Copy configuration files if needed (optional)
+# COPY --from=builder /app/config ./config
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
