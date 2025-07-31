@@ -1,0 +1,32 @@
+# Global owners
+* @your-username
+
+# Backend code
+/backend/ @your-username
+/backend/internal/auth/ @your-username
+/backend/internal/user/ @your-username
+/backend/pkg/database/ @your-username
+
+# Browser extensions
+/extensions/ @your-username
+/extensions/chrome/ @your-username
+/extensions/firefox/ @your-username
+
+# Infrastructure and deployment
+/docker-compose*.yml @your-username
+/nginx/ @your-username
+/k8s/ @your-username
+/.github/workflows/ @your-username
+
+# Documentation
+/docs/ @your-username
+/README.md @your-username
+/CHANGELOG.md @your-username
+/.kiro/specs/ @your-username
+
+# Configuration
+/.env.example @your-username
+/config/ @your-username
+
+# Scripts
+/scripts/ @your-username

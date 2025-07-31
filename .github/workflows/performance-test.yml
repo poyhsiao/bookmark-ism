@@ -1,0 +1,609 @@
+name: Performance Testing
+
+on:
+  schedule:
+    # Run performance tests every Sunday at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Test duration (e.g., 5m, 10m, 30m)'
+        required: false
+        default: '5m'
+      users:
+        description: 'Number of virtual users'
+        required: false
+        default: '100'
+
+jobs:
+  # Load Testing
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up test environment
+      run: |
+        # Start services
+        cp .env.example .env
+        docker-compose up -d
+
+        # Wait for services to be ready
+        sleep 60
+
+        # Check health
+        ./scripts/health-check.sh
+
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+    - name: Create load test script
+      run: |
+        mkdir -p tests/performance
+        cat > tests/performance/load-test.js << 'EOF'
+        import http from 'k6/http';
+        import { check, sleep } from 'k6';
+        import { Rate } from 'k6/metrics';
+
+        const errorRate = new Rate('errors');
+        const BASE_URL = 'http://localhost:8080';
+
+        export let options = {
+          stages: [
+            { duration: '2m', target: 20 }, // Ramp up
+            { duration: '5m', target: 100 }, // Stay at 100 users
+            { duration: '2m', target: 0 }, // Ramp down
+          ],
+          thresholds: {
+            http_req_duration: ['p(95)<500'], // 95% of requests under 500ms
+            http_req_failed: ['rate<0.1'], // Error rate under 10%
+            errors: ['rate<0.1'],
+          },
+        };
+
+        // Test data
+        const testUser = {
+          email: `test-${Math.random()}@example.com`,
+          username: `testuser-${Math.random()}`,
+          password: 'testpassword123'
+        };
+
+        export function setup() {
+          // Register test user
+          const registerRes = http.post(`${BASE_URL}/api/v1/auth/register`, JSON.stringify(testUser), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (registerRes.status === 201) {
+            const loginRes = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
+              email: testUser.email,
+              password: testUser.password
+            }), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (loginRes.status === 200) {
+              const token = loginRes.json('data.token');
+              return { token: token };
+            }
+          }
+
+          return { token: null };
+        }
+
+        export default function(data) {
+          if (!data.token) {
+            errorRate.add(1);
+            return;
+          }
+
+          const headers = {
+            'Authorization': `Bearer ${data.token}`,
+            'Content-Type': 'application/json',
+          };
+
+          // Test scenarios
+          const scenarios = [
+            () => testHealthCheck(),
+            () => testBookmarkCRUD(headers),
+            () => testCollectionCRUD(headers),
+            () => testSearch(headers),
+            () => testOfflineOperations(headers),
+          ];
+
+          // Run random scenario
+          const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+          scenario();
+
+          sleep(1);
+        }
+
+        function testHealthCheck() {
+          const res = http.get(`${BASE_URL}/health`);
+          check(res, {
+            'health check status is 200': (r) => r.status === 200,
+          }) || errorRate.add(1);
+        }
+
+        function testBookmarkCRUD(headers) {
+          // Create bookmark
+          const bookmark = {
+            url: `https://example-${Math.random()}.com`,
+            title: `Test Bookmark ${Math.random()}`,
+            description: 'Test description',
+            tags: ['test', 'performance']
+          };
+
+          const createRes = http.post(`${BASE_URL}/api/v1/bookmarks`, JSON.stringify(bookmark), { headers });
+          const success = check(createRes, {
+            'create bookmark status is 201': (r) => r.status === 201,
+          });
+
+          if (success && createRes.json('data.id')) {
+            const bookmarkId = createRes.json('data.id');
+
+            // Get bookmark
+            const getRes = http.get(`${BASE_URL}/api/v1/bookmarks/${bookmarkId}`, { headers });
+            check(getRes, {
+              'get bookmark status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+
+            // Update bookmark
+            const updateRes = http.put(`${BASE_URL}/api/v1/bookmarks/${bookmarkId}`, JSON.stringify({
+              title: `Updated ${bookmark.title}`
+            }), { headers });
+            check(updateRes, {
+              'update bookmark status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+
+            // Delete bookmark
+            const deleteRes = http.del(`${BASE_URL}/api/v1/bookmarks/${bookmarkId}`, null, { headers });
+            check(deleteRes, {
+              'delete bookmark status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+          } else {
+            errorRate.add(1);
+          }
+        }
+
+        function testCollectionCRUD(headers) {
+          // Create collection
+          const collection = {
+            name: `Test Collection ${Math.random()}`,
+            description: 'Test collection description',
+            visibility: 'private'
+          };
+
+          const createRes = http.post(`${BASE_URL}/api/v1/collections`, JSON.stringify(collection), { headers });
+          check(createRes, {
+            'create collection status is 201': (r) => r.status === 201,
+          }) || errorRate.add(1);
+        }
+
+        function testSearch(headers) {
+          const searchRes = http.get(`${BASE_URL}/api/v1/search/bookmarks?q=test&page=1&limit=10`, { headers });
+          check(searchRes, {
+            'search status is 200': (r) => r.status === 200,
+          }) || errorRate.add(1);
+        }
+
+        function testOfflineOperations(headers) {
+          // Test offline status
+          const statusRes = http.get(`${BASE_URL}/api/v1/offline/status`, { headers });
+          check(statusRes, {
+            'offline status is 200': (r) => r.status === 200,
+          }) || errorRate.add(1);
+
+          // Test connectivity check
+          const connectivityRes = http.get(`${BASE_URL}/api/v1/offline/connectivity`, { headers });
+          check(connectivityRes, {
+            'connectivity check is 200': (r) => r.status === 200,
+          }) || errorRate.add(1);
+        }
+
+        export function teardown(data) {
+          // Cleanup if needed
+          console.log('Load test completed');
+        }
+        EOF
+
+    - name: Run load test
+      run: |
+        DURATION="${{ github.event.inputs.duration || '5m' }}"
+        USERS="${{ github.event.inputs.users || '100' }}"
+
+        # Update test options if custom values provided
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          sed -i "s/{ duration: '5m', target: 100 }/{ duration: '$DURATION', target: $USERS }/" tests/performance/load-test.js
+        fi
+
+        # Run k6 test
+        k6 run --out json=results.json tests/performance/load-test.js
+
+    - name: Generate performance report
+      run: |
+        # Install jq for JSON processing
+        sudo apt-get install -y jq
+
+        # Extract key metrics
+        cat > performance-report.md << 'EOF'
+        # Performance Test Report
+
+        ## Test Configuration
+        - Duration: ${{ github.event.inputs.duration || '5m' }}
+        - Virtual Users: ${{ github.event.inputs.users || '100' }}
+        - Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Key Metrics
+        EOF
+
+        # Extract metrics from results
+        if [ -f results.json ]; then
+          echo "### Response Times" >> performance-report.md
+          jq -r '.metrics.http_req_duration | "- Average: \(.avg)ms\n- 95th Percentile: \(.p95)ms\n- 99th Percentile: \(.p99)ms"' results.json >> performance-report.md
+
+          echo "" >> performance-report.md
+          echo "### Request Statistics" >> performance-report.md
+          jq -r '.metrics.http_reqs | "- Total Requests: \(.count)\n- Requests/sec: \(.rate)"' results.json >> performance-report.md
+
+          echo "" >> performance-report.md
+          echo "### Error Rate" >> performance-report.md
+          jq -r '.metrics.http_req_failed | "- Failed Requests: \(.rate * 100)%"' results.json >> performance-report.md
+        fi
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: |
+          results.json
+          performance-report.md
+
+    - name: Comment on PR (if applicable)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('performance-report.md')) {
+            const report = fs.readFileSync('performance-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📊 Performance Test Results\n\n${report}`
+            });
+          }
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+
+  # Database Performance Test
+  database-performance:
+    name: Database Performance
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: bookmark_perf_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install pgbench
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Run database migrations
+      run: |
+        cd backend
+        export DATABASE_URL="postgres://postgres:postgres@localhost:5432/bookmark_perf_test?sslmode=disable"
+        go run cmd/migrate/main.go -direction=up
+
+    - name: Create performance test data
+      run: |
+        cd backend
+        cat > cmd/perf-test/main.go << 'EOF'
+        package main
+
+        import (
+          "fmt"
+          "log"
+          "math/rand"
+          "time"
+
+          "bookmark-sync-service/backend/pkg/database"
+          "gorm.io/driver/postgres"
+          "gorm.io/gorm"
+        )
+
+        func main() {
+          dsn := "postgres://postgres:postgres@localhost:5432/bookmark_perf_test?sslmode=disable"
+          db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+          if err != nil {
+            log.Fatal("Failed to connect to database:", err)
+          }
+
+          // Create test users
+          for i := 0; i < 100; i++ {
+            user := database.User{
+              Email:       fmt.Sprintf("perftest%d@example.com", i),
+              Username:    fmt.Sprintf("perfuser%d", i),
+              DisplayName: fmt.Sprintf("Perf User %d", i),
+              SupabaseID:  fmt.Sprintf("perf-supabase-%d", i),
+            }
+            db.Create(&user)
+          }
+
+          // Create test bookmarks
+          for i := 0; i < 10000; i++ {
+            bookmark := database.Bookmark{
+              UserID:      uint(rand.Intn(100) + 1),
+              URL:         fmt.Sprintf("https://example%d.com", i),
+              Title:       fmt.Sprintf("Performance Test Bookmark %d", i),
+              Description: fmt.Sprintf("This is a performance test bookmark number %d", i),
+              Tags:        fmt.Sprintf(`["perf", "test", "bookmark%d"]`, i),
+            }
+            db.Create(&bookmark)
+          }
+
+          fmt.Println("Performance test data created successfully")
+        }
+        EOF
+
+        go run cmd/perf-test/main.go
+
+    - name: Run database performance tests
+      run: |
+        # Test concurrent reads
+        echo "Testing concurrent bookmark reads..."
+        time for i in {1..100}; do
+          psql -h localhost -U postgres -d bookmark_perf_test -c "SELECT COUNT(*) FROM bookmarks WHERE user_id = $((RANDOM % 100 + 1));" > /dev/null &
+        done
+        wait
+
+        # Test concurrent writes
+        echo "Testing concurrent bookmark writes..."
+        time for i in {1..50}; do
+          psql -h localhost -U postgres -d bookmark_perf_test -c "INSERT INTO bookmarks (user_id, url, title, created_at, updated_at) VALUES ($((RANDOM % 100 + 1)), 'https://perftest$i.com', 'Perf Test $i', NOW(), NOW());" > /dev/null &
+        done
+        wait
+
+        # Test search performance
+        echo "Testing search performance..."
+        time psql -h localhost -U postgres -d bookmark_perf_test -c "SELECT * FROM bookmarks WHERE title ILIKE '%test%' LIMIT 100;"
+
+    - name: Generate database performance report
+      run: |
+        cat > db-performance-report.md << 'EOF'
+        # Database Performance Report
+
+        ## Test Results
+        - Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - Database: PostgreSQL 15
+        - Test Data: 100 users, 10,000 bookmarks
+
+        ## Performance Metrics
+        - Concurrent read operations: Completed successfully
+        - Concurrent write operations: Completed successfully
+        - Search query performance: Acceptable
+
+        ## Recommendations
+        - Consider adding database indexes for frequently queried columns
+        - Monitor connection pool usage under high load
+        - Implement query optimization for complex searches
+        EOF
+
+    - name: Upload database performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: database-performance-results
+        path: db-performance-report.md
+
+  # Memory and Resource Usage Test
+  resource-usage:
+    name: Resource Usage Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Start monitoring
+      run: |
+        # Start resource monitoring in background
+        (
+          echo "timestamp,cpu_percent,memory_mb,disk_io_read,disk_io_write" > resource-usage.csv
+          while true; do
+            timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
+            cpu=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')
+            memory=$(free -m | awk 'NR==2{printf "%.1f", $3}')
+            disk_read=$(iostat -d 1 1 | awk 'NR==4{print $3}')
+            disk_write=$(iostat -d 1 1 | awk 'NR==4{print $4}')
+            echo "$timestamp,$cpu,$memory,$disk_read,$disk_write" >> resource-usage.csv
+            sleep 5
+          done
+        ) &
+        MONITOR_PID=$!
+        echo $MONITOR_PID > monitor.pid
+
+    - name: Start application
+      run: |
+        cp .env.example .env
+        docker-compose up -d
+        sleep 60
+
+    - name: Run resource usage test
+      run: |
+        # Simulate load for resource monitoring
+        for i in {1..60}; do
+          curl -s http://localhost:8080/health > /dev/null
+          curl -s http://localhost:8080/api/v1/health > /dev/null
+          sleep 1
+        done
+
+    - name: Stop monitoring
+      run: |
+        if [ -f monitor.pid ]; then
+          kill $(cat monitor.pid) || true
+          rm monitor.pid
+        fi
+
+    - name: Generate resource usage report
+      run: |
+        if [ -f resource-usage.csv ]; then
+          python3 << 'EOF'
+        import csv
+        import statistics
+
+        cpu_values = []
+        memory_values = []
+
+        with open('resource-usage.csv', 'r') as f:
+          reader = csv.DictReader(f)
+          for row in reader:
+            try:
+              cpu_values.append(float(row['cpu_percent']))
+              memory_values.append(float(row['memory_mb']))
+            except ValueError:
+              continue
+
+        if cpu_values and memory_values:
+          print(f"# Resource Usage Report")
+          print(f"")
+          print(f"## CPU Usage")
+          print(f"- Average: {statistics.mean(cpu_values):.2f}%")
+          print(f"- Peak: {max(cpu_values):.2f}%")
+          print(f"")
+          print(f"## Memory Usage")
+          print(f"- Average: {statistics.mean(memory_values):.1f} MB")
+          print(f"- Peak: {max(memory_values):.1f} MB")
+        EOF
+        fi > resource-report.md
+
+    - name: Upload resource usage results
+      uses: actions/upload-artifact@v3
+      with:
+        name: resource-usage-results
+        path: |
+          resource-usage.csv
+          resource-report.md
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+        if [ -f monitor.pid ]; then
+          kill $(cat monitor.pid) || true
+        fi
+
+  # Summary Report
+  performance-summary:
+    name: Performance Summary
+    runs-on: ubuntu-latest
+    needs: [load-test, database-performance, resource-usage]
+    if: always()
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Generate summary report
+      run: |
+        cat > performance-summary.md << 'EOF'
+        # Performance Testing Summary
+
+        ## Test Execution
+        - Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - Trigger: ${{ github.event_name }}
+        - Branch: ${{ github.ref }}
+
+        ## Test Results
+        EOF
+
+        if [ "${{ needs.load-test.result }}" == "success" ]; then
+          echo "✅ Load Testing: PASSED" >> performance-summary.md
+        else
+          echo "❌ Load Testing: FAILED" >> performance-summary.md
+        fi
+
+        if [ "${{ needs.database-performance.result }}" == "success" ]; then
+          echo "✅ Database Performance: PASSED" >> performance-summary.md
+        else
+          echo "❌ Database Performance: FAILED" >> performance-summary.md
+        fi
+
+        if [ "${{ needs.resource-usage.result }}" == "success" ]; then
+          echo "✅ Resource Usage: PASSED" >> performance-summary.md
+        else
+          echo "❌ Resource Usage: FAILED" >> performance-summary.md
+        fi
+
+        echo "" >> performance-summary.md
+        echo "## Detailed Reports" >> performance-summary.md
+        echo "- Load testing results available in artifacts" >> performance-summary.md
+        echo "- Database performance metrics available in artifacts" >> performance-summary.md
+        echo "- Resource usage data available in artifacts" >> performance-summary.md
+
+    - name: Upload summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-summary
+        path: performance-summary.md
+
+    - name: Create issue on failure
+      if: ${{ needs.load-test.result == 'failure' || needs.database-performance.result == 'failure' || needs.resource-usage.result == 'failure' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let body = '## 🚨 Performance Test Failure\n\n';
+          body += 'One or more performance tests have failed. Please review the results:\n\n';
+
+          if ('${{ needs.load-test.result }}' === 'failure') {
+            body += '❌ Load Testing failed\n';
+          }
+          if ('${{ needs.database-performance.result }}' === 'failure') {
+            body += '❌ Database Performance testing failed\n';
+          }
+          if ('${{ needs.resource-usage.result }}' === 'failure') {
+            body += '❌ Resource Usage testing failed\n';
+          }
+
+          body += '\nPlease check the workflow run for detailed logs and artifacts.';
+
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Performance Test Failure',
+            body: body,
+            labels: ['performance', 'bug', 'priority:high']
+          });

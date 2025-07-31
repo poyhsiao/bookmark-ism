@@ -1,0 +1,446 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop, task* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.21'
+  NODE_VERSION: '18'
+
+jobs:
+  # Go Backend Testing
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: bookmark_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 30s
+          --health-timeout 20s
+          --health-retries 3
+        ports:
+          - 9000:9000
+          - 9001:9001
+        command: server /data --console-address ":9001"
+
+      typesense:
+        image: typesense/typesense:0.25.2
+        env:
+          TYPESENSE_DATA_DIR: /data
+          TYPESENSE_API_KEY: test-api-key
+        options: >-
+          --health-cmd "curl -f http://localhost:8108/health"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 8108:8108
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        go mod download
+        go mod verify
+
+    - name: Create test environment file
+      run: |
+        cat > .env.test << EOF
+        # Server Configuration
+        SERVER_HOST=localhost
+        SERVER_PORT=8080
+        SERVER_ENV=test
+
+        # Database Configuration
+        DATABASE_HOST=localhost
+        DATABASE_PORT=5432
+        DATABASE_USER=postgres
+        DATABASE_PASSWORD=postgres
+        DATABASE_NAME=bookmark_test
+        DATABASE_SSL_MODE=disable
+
+        # Redis Configuration
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        REDIS_PASSWORD=
+        REDIS_DB=0
+
+        # MinIO Configuration
+        MINIO_ENDPOINT=localhost:9000
+        MINIO_ACCESS_KEY=minioadmin
+        MINIO_SECRET_KEY=minioadmin
+        MINIO_USE_SSL=false
+        MINIO_BUCKET_SCREENSHOTS=screenshots
+        MINIO_BUCKET_AVATARS=avatars
+        MINIO_BUCKET_BACKUPS=backups
+
+        # Typesense Configuration
+        TYPESENSE_HOST=localhost
+        TYPESENSE_PORT=8108
+        TYPESENSE_PROTOCOL=http
+        TYPESENSE_API_KEY=test-api-key
+
+        # JWT Configuration
+        JWT_SECRET=test-jwt-secret-key-for-testing-only
+        JWT_EXPIRY=24h
+        JWT_REFRESH_EXPIRY=168h
+
+        # Supabase Configuration (Mock for testing)
+        SUPABASE_URL=http://localhost:54321
+        SUPABASE_ANON_KEY=test-anon-key
+        SUPABASE_SERVICE_ROLE_KEY=test-service-key
+        EOF
+
+    - name: Wait for services to be ready
+      run: |
+        # Wait for PostgreSQL
+        until pg_isready -h localhost -p 5432 -U postgres; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+
+        # Wait for Redis
+        until redis-cli -h localhost -p 6379 ping; do
+          echo "Waiting for Redis..."
+          sleep 2
+        done
+
+        # Wait for MinIO
+        until curl -f http://localhost:9000/minio/health/live; do
+          echo "Waiting for MinIO..."
+          sleep 5
+        done
+
+        # Wait for Typesense
+        until curl -f http://localhost:8108/health; do
+          echo "Waiting for Typesense..."
+          sleep 5
+        done
+
+    - name: Initialize MinIO buckets
+      run: |
+        # Install MinIO client
+        wget https://dl.min.io/client/mc/release/linux-amd64/mc
+        chmod +x mc
+        sudo mv mc /usr/local/bin/
+
+        # Configure MinIO client
+        mc alias set local http://localhost:9000 minioadmin minioadmin
+
+        # Create buckets
+        mc mb local/screenshots || true
+        mc mb local/avatars || true
+        mc mb local/backups || true
+
+    - name: Run database migrations
+      run: |
+        cd backend
+        go run cmd/migrate/main.go -direction=up
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/bookmark_test?sslmode=disable
+
+    - name: Run Go tests
+      run: |
+        cd backend
+        go test -v -race -coverprofile=coverage.out ./...
+      env:
+        CGO_ENABLED: 1
+
+    - name: Generate coverage report
+      run: |
+        cd backend
+        go tool cover -html=coverage.out -o coverage.html
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: backend/coverage.html
+
+    - name: Check coverage threshold
+      run: |
+        cd backend
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Coverage: ${COVERAGE}%"
+        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+          echo "Coverage ${COVERAGE}% is below threshold 70%"
+          exit 1
+        fi
+
+  # Frontend/Extension Testing
+  frontend-test:
+    name: Frontend & Extension Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          extensions/package-lock.json
+          web/package-lock.json
+
+    - name: Install extension dependencies
+      run: |
+        cd extensions
+        npm ci
+
+    - name: Run extension tests
+      run: |
+        cd extensions
+        npm test
+
+    - name: Lint extension code
+      run: |
+        cd extensions
+        npm run lint
+
+    - name: Build Chrome extension
+      run: |
+        cd extensions
+        npm run build:chrome
+
+    - name: Build Firefox extension
+      run: |
+        cd extensions
+        npm run build:firefox
+
+    - name: Upload extension artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: browser-extensions
+        path: |
+          extensions/dist/chrome/
+          extensions/dist/firefox/
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Run Gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: '-fmt sarif -out gosec.sarif ./backend/...'
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: gosec.sarif
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code Quality
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        working-directory: backend
+        args: --timeout=5m
+
+    - name: Check Go formatting
+      run: |
+        cd backend
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    - name: Check Go modules
+      run: |
+        cd backend
+        go mod tidy
+        if ! git diff --quiet go.mod go.sum; then
+          echo "go.mod or go.sum is not up to date"
+          exit 1
+        fi
+
+  # Docker Build Test
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile
+        push: false
+        tags: bookmark-sync-backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker Compose
+      run: |
+        # Create test environment file
+        cp .env.example .env
+
+        # Start services
+        docker-compose -f docker-compose.yml up -d --build
+
+        # Wait for services
+        sleep 30
+
+        # Check health
+        ./scripts/health-check.sh || true
+
+        # Stop services
+        docker-compose down
+
+  # Integration Tests
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Start test environment
+      run: |
+        cp .env.example .env
+        docker-compose -f docker-compose.yml up -d
+        sleep 60
+
+    - name: Run integration tests
+      run: |
+        cd backend
+        go test -tags=integration -v ./tests/integration/...
+
+    - name: Run API tests
+      run: |
+        # Install dependencies for API testing
+        npm install -g newman
+
+        # Run Postman collection if exists
+        if [ -f "tests/api/bookmark-sync.postman_collection.json" ]; then
+          newman run tests/api/bookmark-sync.postman_collection.json \
+            --environment tests/api/test.postman_environment.json
+        fi
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+
+  # Notification
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, security-scan, code-quality, docker-build, integration-test]
+    if: always()
+
+    steps:
+    - name: Notify success
+      if: ${{ needs.backend-test.result == 'success' && needs.frontend-test.result == 'success' }}
+      run: |
+        echo "✅ All CI checks passed successfully!"
+
+    - name: Notify failure
+      if: ${{ needs.backend-test.result == 'failure' || needs.frontend-test.result == 'failure' }}
+      run: |
+        echo "❌ CI checks failed. Please review the logs."
+        exit 1

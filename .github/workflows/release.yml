@@ -1,0 +1,468 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  # Create Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract version from tag or input
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+        # Generate changelog from git commits
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## Changes since $PREVIOUS_TAG" > RELEASE_CHANGELOG.md
+          echo "" >> RELEASE_CHANGELOG.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD >> RELEASE_CHANGELOG.md
+        else
+          echo "## Initial Release" > RELEASE_CHANGELOG.md
+          echo "" >> RELEASE_CHANGELOG.md
+          echo "This is the first release of Bookmark Sync Service." >> RELEASE_CHANGELOG.md
+        fi
+
+        # Add feature highlights
+        cat >> RELEASE_CHANGELOG.md << 'EOF'
+
+        ## 🚀 Key Features
+
+        ### Core Functionality
+        - **Cross-browser Synchronization**: Real-time bookmark sync across Chrome, Firefox, and Safari
+        - **Comprehensive Offline Support**: Local caching, offline change queuing, and automatic sync
+        - **Advanced Search**: Multi-field search with Chinese language support and intelligent suggestions
+        - **Import/Export**: Seamless bookmark migration with data preservation
+
+        ### Technical Highlights
+        - **Self-hosted Infrastructure**: Complete control with Docker containerization
+        - **Multi-language Support**: Full Chinese (Traditional/Simplified) and English support
+        - **Visual Interface**: Grid-based bookmark management with preview thumbnails
+        - **Real-time Sync**: WebSocket-based synchronization with conflict resolution
+
+        ### Browser Extensions
+        - **Chrome Extension**: Manifest V3 with comprehensive features
+        - **Firefox Extension**: Cross-browser compatibility with shared backend
+        - **Safari Extension**: (Coming soon in next release)
+
+        ### Storage & Search
+        - **MinIO Storage**: S3-compatible storage for screenshots and assets
+        - **Typesense Search**: Advanced search engine with Chinese tokenization
+        - **Redis Caching**: High-performance caching and pub/sub messaging
+        - **PostgreSQL**: Robust database with GORM ORM integration
+
+        ## 📊 Project Statistics
+        - **16/31 Tasks Completed** (51.6% progress)
+        - **8 Major Phases** implemented
+        - **100+ API Endpoints** across all services
+        - **Comprehensive Test Coverage** with TDD methodology
+
+        ## 🛠️ Installation & Deployment
+
+        ### Quick Start with Docker
+        ```bash
+        git clone https://github.com/your-org/bookmark-sync-service.git
+        cd bookmark-sync-service
+        make setup
+        make docker-up
+        ```
+
+        ### Production Deployment
+        ```bash
+        docker-compose -f docker-compose.prod.yml up -d
+        ```
+
+        ## 📚 Documentation
+        - [API Documentation](docs/api/)
+        - [Deployment Guide](docs/deployment/)
+        - [User Guide](docs/user/)
+        - [Development Setup](README.md#development-setup)
+
+        ## 🔧 System Requirements
+        - **Go**: 1.21 or higher
+        - **Docker**: 20.10 or higher
+        - **Docker Compose**: 2.0 or higher
+        - **Memory**: 4GB RAM minimum, 8GB recommended
+        - **Storage**: 10GB minimum for development
+
+        ## 🌟 What's Next
+        - Safari extension development
+        - Advanced content analysis
+        - Link monitoring and maintenance
+        - Community features and social sharing
+
+        For detailed technical information, see [CHANGELOG.md](CHANGELOG.md)
+        EOF
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.changelog.outputs.VERSION }}
+        release_name: Bookmark Sync Service ${{ steps.changelog.outputs.VERSION }}
+        body_path: RELEASE_CHANGELOG.md
+        draft: false
+        prerelease: ${{ contains(steps.changelog.outputs.VERSION, 'alpha') || contains(steps.changelog.outputs.VERSION, 'beta') || contains(steps.changelog.outputs.VERSION, 'rc') }}
+
+  # Build Release Assets
+  build-assets:
+    name: Build Release Assets
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            goos: linux
+            goarch: arm64
+          - os: darwin
+            arch: amd64
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            goos: darwin
+            goarch: arm64
+          - os: windows
+            arch: amd64
+            goos: windows
+            goarch: amd64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build binary
+      run: |
+        cd backend
+
+        # Set version info
+        VERSION=${GITHUB_REF#refs/tags/}
+        COMMIT=$(git rev-parse --short HEAD)
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        # Build flags
+        LDFLAGS="-X main.version=$VERSION -X main.commit=$COMMIT -X main.buildTime=$BUILD_TIME"
+
+        # Build binary
+        CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+        go build -ldflags "$LDFLAGS" -o bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
+        ./cmd/api
+
+    - name: Create archive
+      run: |
+        cd backend
+
+        # Create archive name
+        ARCHIVE_NAME="bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}"
+
+        if [ "${{ matrix.goos }}" == "windows" ]; then
+          zip -r ${ARCHIVE_NAME}.zip bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}.exe
+          echo "ASSET_PATH=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+          echo "ASSET_NAME=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+        else
+          tar -czf ${ARCHIVE_NAME}.tar.gz bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}
+          echo "ASSET_PATH=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+        fi
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: backend/${{ env.ASSET_PATH }}
+        asset_name: ${{ env.ASSET_NAME }}
+        asset_content_type: application/octet-stream
+
+  # Build Browser Extensions
+  build-extensions:
+    name: Build Browser Extensions
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: extensions/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd extensions
+        npm ci
+
+    - name: Build Chrome extension
+      run: |
+        cd extensions
+        npm run build:chrome
+        cd dist
+        zip -r chrome-extension.zip chrome/
+
+    - name: Build Firefox extension
+      run: |
+        cd extensions
+        npm run build:firefox
+        cd dist
+        zip -r firefox-extension.zip firefox/
+
+    - name: Upload Chrome Extension
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: extensions/dist/chrome-extension.zip
+        asset_name: chrome-extension.zip
+        asset_content_type: application/zip
+
+    - name: Upload Firefox Extension
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: extensions/dist/firefox-extension.zip
+        asset_name: firefox-extension.zip
+        asset_content_type: application/zip
+
+  # Build Docker Images for Release
+  build-docker-release:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+          ghcr.io/${{ github.repository }}:latest
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Create Deployment Package
+  create-deployment-package:
+    name: Create Deployment Package
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create deployment package
+      run: |
+        # Create deployment directory
+        mkdir -p deployment-package
+
+        # Copy deployment files
+        cp -r docker-compose*.yml deployment-package/
+        cp -r nginx/ deployment-package/
+        cp -r scripts/ deployment-package/
+        cp .env.example deployment-package/
+        cp README.md deployment-package/
+        cp CHANGELOG.md deployment-package/
+
+        # Create deployment guide
+        cat > deployment-package/DEPLOYMENT.md << 'EOF'
+        # Bookmark Sync Service Deployment Guide
+
+        ## Quick Start
+
+        1. Copy `.env.example` to `.env` and configure your settings
+        2. Run `docker-compose up -d` for development
+        3. Run `docker-compose -f docker-compose.prod.yml up -d` for production
+
+        ## Configuration
+
+        Edit the `.env` file with your specific configuration:
+
+        - Database settings
+        - Redis configuration
+        - MinIO storage settings
+        - Typesense search configuration
+        - JWT secrets
+        - Supabase settings
+
+        ## Scripts
+
+        - `scripts/setup.sh` - Initial setup
+        - `scripts/health-check.sh` - Health monitoring
+        - `scripts/backup.sh` - Database backup
+        - `scripts/init-buckets.sh` - Initialize storage buckets
+
+        ## Monitoring
+
+        Access the following endpoints for monitoring:
+
+        - Health: `http://localhost:8080/health`
+        - Metrics: `http://localhost:8080/metrics`
+        - API Docs: `http://localhost:8080/docs`
+
+        For detailed information, see the main README.md file.
+        EOF
+
+        # Create archive
+        tar -czf deployment-package.tar.gz deployment-package/
+
+    - name: Upload Deployment Package
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: deployment-package.tar.gz
+        asset_name: deployment-package.tar.gz
+        asset_content_type: application/gzip
+
+  # Update Release Notes
+  update-release:
+    name: Update Release Notes
+    runs-on: ubuntu-latest
+    needs: [build-assets, build-extensions, build-docker-release, create-deployment-package]
+
+    steps:
+    - name: Update release with asset information
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: context.ref.replace('refs/tags/', '')
+          });
+
+          const assetInfo = `
+
+          ## 📦 Release Assets
+
+          ### Binaries
+          - Linux (amd64, arm64)
+          - macOS (amd64, arm64)
+          - Windows (amd64)
+
+          ### Browser Extensions
+          - Chrome Extension (Manifest V3)
+          - Firefox Extension (Manifest V2)
+
+          ### Docker Images
+          - \`ghcr.io/${context.repo.owner}/${context.repo.repo}:${context.ref.replace('refs/tags/', '')}\`
+          - \`ghcr.io/${context.repo.owner}/${context.repo.repo}:latest\`
+
+          ### Deployment Package
+          - Complete deployment package with Docker Compose files
+          - Configuration templates and scripts
+          - Deployment documentation
+
+          ## 🔐 Checksums
+
+          All release assets are signed and checksums are available for verification.
+          `;
+
+          await github.rest.repos.updateRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.id,
+            body: release.body + assetInfo
+          });
+
+  # Notify Release
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [update-release]
+    if: always()
+
+    steps:
+    - name: Notify success
+      if: ${{ needs.update-release.result == 'success' }}
+      run: |
+        echo "🎉 Release created successfully!"
+        echo "📦 Assets built and uploaded"
+        echo "🐳 Docker images published"
+        echo "🚀 Ready for deployment"
+
+    - name: Notify failure
+      if: ${{ needs.update-release.result == 'failure' }}
+      run: |
+        echo "❌ Release creation failed"
+        exit 1

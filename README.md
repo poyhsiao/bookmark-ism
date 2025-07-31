@@ -5,6 +5,7 @@ A self-hosted multi-user bookmark synchronization service that provides cross-br
 ## Features
 
 - **Cross-browser sync**: Real-time bookmark synchronization across all major browsers
+- **Comprehensive offline support**: Local bookmark caching, offline change queuing, and automatic sync
 - **Advanced search**: Multi-field search with Chinese language support and intelligent suggestions
 - **Import/Export**: Seamless bookmark migration from Chrome, Firefox, and Safari with data preservation
 - **Visual interface**: Grid-based bookmark management with preview thumbnails
@@ -183,6 +184,20 @@ make prod-down     # Stop production environment
 - `GET /api/v1/import-export/export/html` - Export bookmarks to HTML (Netscape format)
 - `POST /api/v1/import-export/detect-duplicates` - Detect duplicate URLs before import
 
+### Offline Support ✅ IMPLEMENTED
+- `POST /api/v1/offline/cache/bookmark` - Cache bookmark for offline access
+- `GET /api/v1/offline/cache/bookmark/:id` - Get cached bookmark by ID
+- `GET /api/v1/offline/cache/bookmarks` - Get all cached bookmarks for user
+- `POST /api/v1/offline/queue/change` - Queue offline change for later sync
+- `GET /api/v1/offline/queue` - Get all queued offline changes
+- `POST /api/v1/offline/sync` - Process offline queue and sync changes
+- `GET /api/v1/offline/status` - Get current offline/online status
+- `PUT /api/v1/offline/status` - Set offline/online status
+- `GET /api/v1/offline/stats` - Get cache statistics and metrics
+- `GET /api/v1/offline/indicator` - Get offline indicator information
+- `GET /api/v1/offline/connectivity` - Check network connectivity
+- `DELETE /api/v1/offline/cache/cleanup` - Cleanup expired cache entries
+
 ## Configuration
 
 The application can be configured using environment variables or a YAML configuration file. See `.env.example` and `config/config.yaml` for available options.
@@ -312,13 +327,21 @@ This project has successfully completed 7 major phases with comprehensive functi
 - ✅ Security validation for file uploads and processing
 - ✅ Redis infrastructure improvements and method consistency
 
-**🚧 Next Steps (Phase 8: Offline Support & Safari Extension)**
-- 🚧 Comprehensive offline support with local caching
+**✅ Phase 8: Comprehensive Offline Support (50% Complete)**
+- ✅ Local bookmark caching system with Redis-based storage
+- ✅ Offline change queuing with conflict resolution
+- ✅ Automatic sync when connectivity is restored
+- ✅ Offline indicators and user feedback
+- ✅ Efficient cache management and cleanup
+- ✅ RESTful API with 11 endpoints for offline operations
+- ✅ Comprehensive testing with TDD methodology
+
+**🚧 Current Phase (Phase 8: Safari Extension & Advanced Features)**
 - 🚧 Safari extension development
 - 🚧 Advanced content analysis and intelligent organization
 - 🚧 Link monitoring and maintenance features
 
-**Current Progress: 15/31 tasks completed (48.4%)**
+**Current Progress: 16/31 tasks completed (51.6%)**
 
 ## Contributing
 
