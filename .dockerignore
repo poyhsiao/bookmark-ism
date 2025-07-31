@@ -1,56 +1,111 @@
-# Git
+# Git and version control
 .git
 .gitignore
+.gitattributes
 
-# Documentation
+# Documentation (not needed in container)
 README.md
 *.md
+docs/
+CHANGELOG.md
+LICENSE
 
-# Environment files
+# Environment files (secrets should be injected at runtime)
 .env
-.env.local
-.env.example
+.env.*
+!.env.example
 
-# Logs
-logs/
-*.log
-
-# Build artifacts
-bin/
-dist/
-build/
-
-# Dependencies
-node_modules/
-
-# IDE
+# Development and IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
+*~
 .DS_Store
 Thumbs.db
 
-# Test coverage
-coverage.out
-*.test
-
-# Temporary files
+# Logs and temporary files
+logs/
+*.log
 tmp/
 temp/
+*.tmp
+*.temp
 
-# Docker
+# Test files and coverage (not needed in production container)
+*_test.go
+*.test
+coverage.out
+coverage.html
+*.prof
+*.pprof
+*.trace
+
+# Build artifacts (will be built inside container)
+bin/
+dist/
+build/
+/api
+/main
+backend/api
+backend/main
+
+# Dependencies (will be downloaded in container)
+node_modules/
+vendor/
+
+# Frontend source (not needed for backend container)
+web/
+extensions/
+
+# Development scripts (not needed in container)
+scripts/
+Makefile
+
+# Docker files (not needed inside container)
 Dockerfile*
 docker-compose*.yml
 .dockerignore
 
-# Scripts (not needed in container)
-scripts/
+# Kubernetes configs (not needed in container)
+k8s/
 
-# Backups
-backups/
+# CI/CD configs (not needed in container)
+.github/
 
-# Nginx configs (mounted as volumes)
+# Local development configs
 nginx/
+config/local/
+config/dev/
+
+# Backup and data directories
+backups/
+data/
+storage/
+uploads/
+
+# Supabase (external service)
+supabase/
+
+# Kiro IDE files (not needed in container)
+.kiro/
+.roo/
+
+# Performance and debugging files
+*.heap
+*.cpu
+
+# Local overrides and temporary files
+docker-compose.override.yml
+docker-compose.local.yml
+local.env
+*_FIX.md
+*_TEMP.md
+TEMP_*
+DEBUG_*
+
+# Extension artifacts
+*.zip
+*.crx
+*.xpi
+web-ext-artifacts/
