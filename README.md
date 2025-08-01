@@ -4,7 +4,7 @@ A self-hosted multi-user bookmark synchronization service that provides cross-br
 
 ## Features
 
-- **Cross-browser sync**: Real-time bookmark synchronization across all major browsers
+- **Cross-browser sync**: Real-time bookmark synchronization across Chrome, Firefox, and Safari
 - **Comprehensive offline support**: Local bookmark caching, offline change queuing, and automatic sync
 - **Advanced search**: Multi-field search with Chinese language support and intelligent suggestions
 - **Import/Export**: Seamless bookmark migration from Chrome, Firefox, and Safari with data preservation
@@ -287,13 +287,15 @@ This project has successfully completed 7 major phases with comprehensive functi
 **✅ Phase 5: Browser Extensions MVP (100% Complete)**
 - ✅ Chrome extension with Manifest V3 support
 - ✅ Firefox extension with Manifest V2 compatibility
+- ✅ Safari Web Extension with native macOS integration
 - ✅ Cross-browser API compatibility layer
-- ✅ Real-time WebSocket synchronization
+- ✅ Real-time WebSocket synchronization across all browsers
 - ✅ Authentication system with JWT token management
 - ✅ Popup interface with grid/list view toggle
 - ✅ Options page with comprehensive settings
 - ✅ Content script for page metadata extraction
 - ✅ Context menu integration for quick bookmarking
+- ✅ Safari bookmark import with native API integration
 - ✅ Offline support with local caching
 
 **✅ Phase 6: Enhanced UI & Storage (100% Complete)**
@@ -327,21 +329,26 @@ This project has successfully completed 7 major phases with comprehensive functi
 - ✅ Security validation for file uploads and processing
 - ✅ Redis infrastructure improvements and method consistency
 
-**✅ Phase 8: Comprehensive Offline Support (50% Complete)**
+**✅ Phase 8: Comprehensive Offline Support & Safari Extension (100% Complete)**
 - ✅ Local bookmark caching system with Redis-based storage
 - ✅ Offline change queuing with conflict resolution
 - ✅ Automatic sync when connectivity is restored
 - ✅ Offline indicators and user feedback
 - ✅ Efficient cache management and cleanup
 - ✅ RESTful API with 11 endpoints for offline operations
+- ✅ Safari Web Extension with native macOS integration
+- ✅ Cross-browser compatibility with Chrome and Firefox
+- ✅ Safari-specific bookmark import functionality
+- ✅ Safari-optimized UI with native design language
 - ✅ Comprehensive testing with TDD methodology
 
-**🚧 Current Phase (Phase 8: Safari Extension & Advanced Features)**
-- 🚧 Safari extension development
-- 🚧 Advanced content analysis and intelligent organization
-- 🚧 Link monitoring and maintenance features
+**🚧 Current Phase (Phase 9: Advanced Content Features)**
+- 🚧 Intelligent content analysis and automatic tag suggestions
+- 🚧 Advanced search features with semantic search
+- 🚧 Content categorization using AI/ML services
+- 🚧 Search result ranking based on user behavior
 
-**Current Progress: 16/31 tasks completed (51.6%)**
+**Current Progress: 17/31 tasks completed (54.8%)**
 
 ## Contributing
 

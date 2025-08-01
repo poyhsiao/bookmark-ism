@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmark Sync</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Loading State -->
+    <div id="loading-section" class="section">
+      <div class="loading-spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Authentication Section -->
+    <div id="auth-section" class="section" style="display: none;">
+      <div class="header">
+        <h1>Bookmark Sync</h1>
+        <p class="subtitle">Sign in to sync your bookmarks</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="login-tab" class="tab-button active">Login</button>
+        <button id="register-tab" class="tab-button">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form" style="display: none;">
+        <div class="form-group">
+          <label for="register-name">Name</label>
+          <input type="text" id="register-name" required>
+        </div>
+        <div class="form-group">
+          <label for="register-email">Email</label>
+          <input type="email" id="register-email" required>
+        </div>
+        <div class="form-group">
+          <label for="register-password">Password</label>
+          <input type="password" id="register-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Register</button>
+      </form>
+
+      <div id="auth-error" class="error-message" style="display: none;"></div>
+    </div>
+
+    <!-- Main Bookmarks Section -->
+    <div id="bookmarks-section" class="section" style="display: none;">
+      <div class="header">
+        <h1>Bookmarks</h1>
+        <div class="header-actions">
+          <button id="sync-button" class="btn btn-icon" title="Sync">
+            <span class="icon">🔄</span>
+          </button>
+          <button id="view-toggle" class="btn btn-icon" title="Toggle View">
+            <span class="icon">⊞</span>
+          </button>
+          <button id="settings-button" class="btn btn-icon" title="Settings">
+            <span class="icon">⚙️</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search bookmarks...">
+        <button id="search-clear" class="btn btn-icon" style="display: none;">
+          <span class="icon">✕</span>
+        </button>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button id="bookmark-current" class="btn btn-secondary">
+          <span class="icon">⭐</span>
+          Bookmark This Page
+        </button>
+        <button id="import-safari" class="btn btn-secondary">
+          <span class="icon">📥</span>
+          Import Safari Bookmarks
+        </button>
+      </div>
+
+      <!-- View Mode Toggle -->
+      <div class="view-controls">
+        <div class="view-mode-buttons">
+          <button id="grid-view" class="view-btn active">Grid</button>
+          <button id="list-view" class="view-btn">List</button>
+        </div>
+        <div class="bookmark-count">
+          <span id="bookmark-count-text">0 bookmarks</span>
+        </div>
+      </div>
+
+      <!-- Bookmarks Display -->
+      <div id="bookmarks-container">
+        <!-- Grid View -->
+        <div id="bookmarks-grid" class="bookmarks-grid"></div>
+
+        <!-- List View -->
+        <div id="bookmarks-list" class="bookmarks-list" style="display: none;"></div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state" style="display: none;">
+          <div class="empty-icon">📚</div>
+          <h3>No bookmarks yet</h3>
+          <p>Start by bookmarking the current page or importing from Safari</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="bookmarks-loading" class="loading-state" style="display: none;">
+          <div class="loading-spinner"></div>
+          <p>Loading bookmarks...</p>
+        </div>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div id="sync-status" class="sync-status">
+          <span class="status-indicator offline"></span>
+          <span class="status-text">Offline</span>
+        </div>
+        <div class="user-info">
+          <span id="user-name"></span>
+          <button id="logout-button" class="btn btn-text">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Section -->
+    <div id="settings-section" class="section" style="display: none;">
+      <div class="header">
+        <button id="back-to-bookmarks" class="btn btn-icon">
+          <span class="icon">←</span>
+        </button>
+        <h1>Settings</h1>
+      </div>
+
+      <div class="settings-content">
+        <div class="setting-group">
+          <h3>Appearance</h3>
+          <div class="setting-item">
+            <label for="theme-select">Theme</label>
+            <select id="theme-select">
+              <option value="auto">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="grid-size-select">Grid Size</label>
+            <select id="grid-size-select">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>Sync</h3>
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="auto-sync-checkbox">
+              <span class="checkmark"></span>
+              Auto-sync bookmarks
+            </label>
+          </div>
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="notifications-checkbox">
+              <span class="checkmark"></span>
+              Show notifications
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>Data</h3>
+          <div class="setting-item">
+            <button id="clear-cache-button" class="btn btn-secondary">Clear Cache</button>
+            <p class="setting-description">Clear local bookmark cache</p>
+          </div>
+          <div class="setting-item">
+            <button id="export-data-button" class="btn btn-secondary">Export Data</button>
+            <p class="setting-description">Export your bookmarks as JSON</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Progress Modal -->
+    <div id="import-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Importing Safari Bookmarks</h3>
+        </div>
+        <div class="modal-body">
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div id="import-progress" class="progress-fill"></div>
+            </div>
+            <div class="progress-text">
+              <span id="import-status">Starting import...</span>
+              <span id="import-percentage">0%</span>
+            </div>
+          </div>
+          <div id="import-details" class="import-details">
+            <div class="detail-item">
+              <span>Processed:</span>
+              <span id="processed-count">0</span>
+            </div>
+            <div class="detail-item">
+              <span>Errors:</span>
+              <span id="error-count">0</span>
+            </div>
+            <div class="detail-item">
+              <span>Duplicates:</span>
+              <span id="duplicate-count">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-import" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay -->
+    <div id="overlay" class="overlay" style="display: none;"></div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmark Sync - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-content">
+        <h1>Bookmark Sync Settings</h1>
+        <p class="subtitle">Configure your bookmark synchronization preferences</p>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="settings-container">
+
+        <!-- Account Section -->
+        <section class="settings-section">
+          <h2>Account</h2>
+          <div class="setting-group">
+            <div class="user-info" id="user-info">
+              <div class="user-avatar">
+                <span id="user-initial">?</span>
+              </div>
+              <div class="user-details">
+                <div class="user-name" id="user-name">Not signed in</div>
+                <div class="user-email" id="user-email"></div>
+              </div>
+              <div class="user-actions">
+                <button id="logout-button" class="btn btn-secondary" style="display: none;">Logout</button>
+                <button id="login-button" class="btn btn-primary">Sign In</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Appearance Section -->
+        <section class="settings-section">
+          <h2>Appearance</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label for="theme-select">Theme</label>
+              <select id="theme-select" class="form-control">
+                <option value="auto">Auto (System)</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+              <p class="setting-description">Choose your preferred color theme</p>
+            </div>
+
+            <div class="setting-item">
+              <label for="view-mode-select">Default View Mode</label>
+              <select id="view-mode-select" class="form-control">
+                <option value="grid">Grid View</option>
+                <option value="list">List View</option>
+              </select>
+              <p class="setting-description">Default layout for displaying bookmarks</p>
+            </div>
+
+            <div class="setting-item">
+              <label for="grid-size-select">Grid Size</label>
+              <select id="grid-size-select" class="form-control">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+              <p class="setting-description">Size of bookmark items in grid view</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sync Section -->
+        <section class="settings-section">
+          <h2>Synchronization</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auto-sync-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Auto-sync bookmarks</span>
+              </label>
+              <p class="setting-description">Automatically sync bookmarks across devices</p>
+            </div>
+
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="real-time-sync-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Real-time sync</span>
+              </label>
+              <p class="setting-description">Sync changes immediately via WebSocket</p>
+            </div>
+
+            <div class="setting-item">
+              <label for="sync-interval-select">Sync Interval</label>
+              <select id="sync-interval-select" class="form-control">
+                <option value="30">30 seconds</option>
+                <option value="60">1 minute</option>
+                <option value="300">5 minutes</option>
+                <option value="900">15 minutes</option>
+                <option value="1800">30 minutes</option>
+              </select>
+              <p class="setting-description">How often to sync when real-time sync is disabled</p>
+            </div>
+
+            <div class="sync-status">
+              <div class="status-indicator">
+                <span class="status-dot" id="sync-status-dot"></span>
+                <span class="status-text" id="sync-status-text">Checking...</span>
+              </div>
+              <button id="force-sync-button" class="btn btn-secondary">Sync Now</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Notifications Section -->
+        <section class="settings-section">
+          <h2>Notifications</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="notifications-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Show notifications</span>
+              </label>
+              <p class="setting-description">Display notifications for bookmark actions</p>
+            </div>
+
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="sync-notifications-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Sync notifications</span>
+              </label>
+              <p class="setting-description">Notify when bookmarks are synced from other devices</p>
+            </div>
+
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="error-notifications-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Error notifications</span>
+              </label>
+              <p class="setting-description">Show notifications when errors occur</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Safari Integration Section -->
+        <section class="settings-section">
+          <h2>Safari Integration</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="context-menu-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Context menu integration</span>
+              </label>
+              <p class="setting-description">Add bookmark options to right-click menu</p>
+            </div>
+
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auto-import-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Auto-import Safari bookmarks</span>
+              </label>
+              <p class="setting-description">Automatically import new Safari bookmarks</p>
+            </div>
+
+            <div class="setting-item">
+              <button id="import-safari-button" class="btn btn-primary">
+                <span class="icon">📥</span>
+                Import Safari Bookmarks
+              </button>
+              <p class="setting-description">Import your existing Safari bookmarks</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Data Management Section -->
+        <section class="settings-section">
+          <h2>Data Management</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <div class="data-stats">
+                <div class="stat-item">
+                  <span class="stat-label">Bookmarks:</span>
+                  <span class="stat-value" id="bookmark-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Collections:</span>
+                  <span class="stat-value" id="collection-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Storage Used:</span>
+                  <span class="stat-value" id="storage-used">0 KB</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="data-actions">
+                <button id="export-data-button" class="btn btn-secondary">
+                  <span class="icon">📤</span>
+                  Export Data
+                </button>
+                <button id="import-data-button" class="btn btn-secondary">
+                  <span class="icon">📥</span>
+                  Import Data
+                </button>
+                <button id="clear-cache-button" class="btn btn-secondary">
+                  <span class="icon">🗑️</span>
+                  Clear Cache
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <button id="reset-settings-button" class="btn btn-danger">
+                Reset All Settings
+              </button>
+              <p class="setting-description">Reset all settings to default values</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Advanced Section -->
+        <section class="settings-section">
+          <h2>Advanced</h2>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label for="api-endpoint-input">API Endpoint</label>
+              <input type="url" id="api-endpoint-input" class="form-control" placeholder="http://localhost:8080">
+              <p class="setting-description">Custom API server endpoint</p>
+            </div>
+
+            <div class="setting-item">
+              <label class="checkbox-label">
+                <input type="checkbox" id="debug-mode-checkbox">
+                <span class="checkmark"></span>
+                <span class="label-text">Debug mode</span>
+              </label>
+              <p class="setting-description">Enable detailed logging for troubleshooting</p>
+            </div>
+
+            <div class="setting-item">
+              <button id="view-logs-button" class="btn btn-secondary">View Error Logs</button>
+              <p class="setting-description">View recent error logs and diagnostics</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- About Section -->
+        <section class="settings-section">
+          <h2>About</h2>
+          <div class="setting-group">
+            <div class="about-info">
+              <div class="app-info">
+                <h3>Bookmark Sync Service</h3>
+                <p>Version 1.0.0</p>
+                <p>Safari Web Extension for cross-browser bookmark synchronization</p>
+              </div>
+              <div class="links">
+                <a href="#" id="help-link" class="link">Help & Support</a>
+                <a href="#" id="privacy-link" class="link">Privacy Policy</a>
+                <a href="#" id="github-link" class="link">GitHub Repository</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Import Progress Modal -->
+    <div id="import-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Importing Safari Bookmarks</h3>
+          <button id="close-import-modal" class="btn btn-icon">
+            <span class="icon">✕</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div id="import-progress" class="progress-fill"></div>
+            </div>
+            <div class="progress-text">
+              <span id="import-status">Starting import...</span>
+              <span id="import-percentage">0%</span>
+            </div>
+          </div>
+          <div id="import-details" class="import-details">
+            <div class="detail-item">
+              <span>Total:</span>
+              <span id="total-count">0</span>
+            </div>
+            <div class="detail-item">
+              <span>Processed:</span>
+              <span id="processed-count">0</span>
+            </div>
+            <div class="detail-item">
+              <span>Errors:</span>
+              <span id="error-count">0</span>
+            </div>
+            <div class="detail-item">
+              <span>Duplicates:</span>
+              <span id="duplicate-count">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-import" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Logs Modal -->
+    <div id="logs-modal" class="modal" style="display: none;">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h3>Error Logs</h3>
+          <button id="close-logs-modal" class="btn btn-icon">
+            <span class="icon">✕</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="logs-container">
+            <div class="logs-header">
+              <button id="clear-logs-button" class="btn btn-secondary">Clear Logs</button>
+              <button id="export-logs-button" class="btn btn-secondary">Export Logs</button>
+            </div>
+            <div id="logs-content" class="logs-content">
+              <p class="no-logs">No error logs found</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay -->
+    <div id="overlay" class="overlay" style="display: none;"></div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
