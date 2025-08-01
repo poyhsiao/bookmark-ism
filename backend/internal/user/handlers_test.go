@@ -2,6 +2,7 @@ package user
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -23,7 +24,7 @@ type MockUserService struct {
 	mock.Mock
 }
 
-func (m *MockUserService) GetProfile(ctx interface{}, userID uint) (*UserProfile, error) {
+func (m *MockUserService) GetProfile(ctx context.Context, userID uint) (*UserProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -31,7 +32,7 @@ func (m *MockUserService) GetProfile(ctx interface{}, userID uint) (*UserProfile
 	return args.Get(0).(*UserProfile), args.Error(1)
 }
 
-func (m *MockUserService) UpdateProfile(ctx interface{}, userID uint, req *UpdateProfileRequest) (*UserProfile, error) {
+func (m *MockUserService) UpdateProfile(ctx context.Context, userID uint, req *UpdateProfileRequest) (*UserProfile, error) {
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -39,7 +40,7 @@ func (m *MockUserService) UpdateProfile(ctx interface{}, userID uint, req *Updat
 	return args.Get(0).(*UserProfile), args.Error(1)
 }
 
-func (m *MockUserService) UpdatePreferences(ctx interface{}, userID uint, req *UpdatePreferencesRequest) (*UserProfile, error) {
+func (m *MockUserService) UpdatePreferences(ctx context.Context, userID uint, req *UpdatePreferencesRequest) (*UserProfile, error) {
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -47,7 +48,7 @@ func (m *MockUserService) UpdatePreferences(ctx interface{}, userID uint, req *U
 	return args.Get(0).(*UserProfile), args.Error(1)
 }
 
-func (m *MockUserService) UploadAvatar(ctx interface{}, userID uint, imageData []byte, contentType string) (*UserProfile, error) {
+func (m *MockUserService) UploadAvatar(ctx context.Context, userID uint, imageData []byte, contentType string) (*UserProfile, error) {
 	args := m.Called(ctx, userID, imageData, contentType)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -55,7 +56,7 @@ func (m *MockUserService) UploadAvatar(ctx interface{}, userID uint, imageData [
 	return args.Get(0).(*UserProfile), args.Error(1)
 }
 
-func (m *MockUserService) ExportUserData(ctx interface{}, userID uint) (map[string]interface{}, error) {
+func (m *MockUserService) ExportUserData(ctx context.Context, userID uint) (map[string]interface{}, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -63,7 +64,7 @@ func (m *MockUserService) ExportUserData(ctx interface{}, userID uint) (map[stri
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
-func (m *MockUserService) DeleteUser(ctx interface{}, userID uint) error {
+func (m *MockUserService) DeleteUser(ctx context.Context, userID uint) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)
 }

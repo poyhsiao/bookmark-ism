@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,14 +15,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// ServiceInterface defines the interface for user service operations
+type ServiceInterface interface {
+	GetProfile(ctx context.Context, userID uint) (*UserProfile, error)
+	UpdateProfile(ctx context.Context, userID uint, req *UpdateProfileRequest) (*UserProfile, error)
+	UpdatePreferences(ctx context.Context, userID uint, req *UpdatePreferencesRequest) (*UserProfile, error)
+	UploadAvatar(ctx context.Context, userID uint, imageData []byte, contentType string) (*UserProfile, error)
+	ExportUserData(ctx context.Context, userID uint) (map[string]interface{}, error)
+	DeleteUser(ctx context.Context, userID uint) error
+}
+
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service *Service
+	service ServiceInterface
 	logger  *zap.Logger
 }
 
 // NewHandler creates a new user handler
-func NewHandler(service *Service, logger *zap.Logger) *Handler {
+func NewHandler(service ServiceInterface, logger *zap.Logger) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,

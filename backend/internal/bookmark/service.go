@@ -27,8 +27,8 @@ func NewService(db *gorm.DB) *Service {
 // CreateBookmarkRequest represents the request to create a bookmark
 type CreateBookmarkRequest struct {
 	UserID      uint     `json:"user_id"`
-	URL         string   `json:"url" binding:"required"`
-	Title       string   `json:"title" binding:"required"`
+	URL         string   `json:"url"`
+	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags"`
 	Favicon     string   `json:"favicon"`

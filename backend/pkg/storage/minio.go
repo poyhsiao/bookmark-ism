@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,9 +20,20 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+// MinioClientInterface defines the interface for MinIO client operations
+type MinioClientInterface interface {
+	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
+	GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
+	RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error
+	PresignedGetObject(ctx context.Context, bucketName, objectName string, expiry time.Duration, reqParams url.Values) (*url.URL, error)
+	BucketExists(ctx context.Context, bucketName string) (bool, error)
+	MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error
+	ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo
+}
+
 // Client wraps the MinIO client with additional functionality
 type Client struct {
-	client     *minio.Client
+	client     MinioClientInterface
 	config     *config.StorageConfig
 	bucketName string
 }

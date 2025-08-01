@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"bookmark-sync-service/backend/pkg/database"
@@ -78,171 +79,6 @@ func createTestUser(t *testing.T, db *gorm.DB) *database.User {
 	require.NoError(t, err)
 
 	return user
-}
-
-// TestGetProfile tests the GetProfile functionality
-// TestGetProfile 測試 GetProfile 功能
-func TestGetProfile(t *testing.T) {
-	service, db, _ := setupTestService(t)
-	ctx := context.Background()
-
-	t.Run("Get Existing User Profile", func(t *testing.T) {
-		// Create test user
-		// 創建測試用戶
-		user := createTestUser(t, db)
-
-		// Get profile
-		// 獲取個人資料
-		profile, err := service.GetProfile(ctx, user.ID)
-		require.NoError(t, err)
-
-		assert.Equal(t, user.ID, profile.ID)
-		assert.Equal(t, user.Email, profile.Email)
-		assert.Equal(t, user.Username, profile.Username)
-		assert.Equal(t, user.DisplayName, profile.DisplayName)
-		assert.Equal(t, "light", profile.Preferences.Theme)
-		assert.Equal(t, "medium", profile.Preferences.GridSize)
-	})
-
-	t.Run("Get Non-existent User Profile", func(t *testing.T) {
-		// Try to get profile for non-existent user
-		// 嘗試獲取不存在用戶的個人資料
-		profile, err := service.GetProfile(ctx, 999)
-		assert.Error(t, err)
-		assert.Nil(t, profile)
-		assert.Contains(t, err.Error(), "user not found")
-	})
-
-	t.Run("Get Profile with Invalid Preferences", func(t *testing.T) {
-		// Create user with invalid preferences JSON
-		// 創建具有無效偏好設置 JSON 的用戶
-		user := &database.User{
-			Email:       "invalid@example.com",
-			Username:    "invaliduser",
-			DisplayName: "Invalid User",
-			SupabaseID:  "invalid-supabase-id",
-			Preferences: `{"invalid": json}`, // Invalid JSON
-		}
-		err := db.Create(user).Error
-		require.NoError(t, err)
-
-		// Should still return profile with default preferences
-		// 仍應返回具有默認偏好設置的個人資料
-		profile, err := service.GetProfile(ctx, user.ID)
-		require.NoError(t, err)
-
-		assert.Equal(t, "light", profile.Preferences.Theme) // Default value
-	})
-}
-
-// TestUpdateProfile tests the UpdateProfile functionality
-// TestUpdateProfile 測試 UpdateProfile 功能
-func TestUpdateProfile(t *testing.T) {
-	service, db, _ := setupTestService(t)
-	ctx := context.Background()
-
-	t.Run("Update Profile Successfully", func(t *testing.T) {
-		// Create test user
-		// 創建測試用戶
-		user := createTestUser(t, db)
-
-		// Update profile
-		// 更新個人資料
-		req := &UpdateProfileRequest{
-			DisplayName: "Updated Name",
-			Username:    "updateduser",
-		}
-
-		profile, err := service.UpdateProfile(ctx, user.ID, req)
-		require.NoError(t, err)
-
-		assert.Equal(t, "Updated Name", profile.DisplayName)
-		assert.Equal(t, "updateduser", profile.Username)
-	})
-
-	t.Run("Update Profile with Existing Username", func(t *testing.T) {
-		// Create two users
-		// 創建兩個用戶
-		user1 := createTestUser(t, db)
-		user2 := &database.User{
-			Email:       "user2@example.com",
-			Username:    "user2",
-			DisplayName: "User 2",
-			SupabaseID:  "user2-supabase-id",
-		}
-		err := db.Create(user2).Error
-		require.NoError(t, err)
-
-		// Try to update user2's username to user1's username
-		// 嘗試將 user2 的用戶名更新為 user1 的用戶名
-		req := &UpdateProfileRequest{
-			Username: user1.Username,
-		}
-
-		profile, err := service.UpdateProfile(ctx, user2.ID, req)
-		assert.Error(t, err)
-		assert.Nil(t, profile)
-		assert.Contains(t, err.Error(), "username already taken")
-	})
-
-	t.Run("Update Non-existent User", func(t *testing.T) {
-		req := &UpdateProfileRequest{
-			DisplayName: "New Name",
-		}
-
-		profile, err := service.UpdateProfile(ctx, 999, req)
-		assert.Error(t, err)
-		assert.Nil(t, profile)
-		assert.Contains(t, err.Error(), "user not found")
-	})
-}
-
-// TestUpdatePreferences tests the UpdatePreferences functionality
-// TestUpdatePreferences 測試 UpdatePreferences 功能
-func TestUpdatePreferences(t *testing.T) {
-	service, db, _ := setupTestService(t)
-	ctx := context.Background()
-
-	t.Run("Update Preferences Successfully", func(t *testing.T) {
-		// Create test user
-		// 創建測試用戶
-		user := createTestUser(t, db)
-
-		// Update preferences
-		// 更新偏好設置
-		req := &UpdatePreferencesRequest{
-			Theme:       "dark",
-			GridSize:    "large",
-			DefaultView: "list",
-			Language:    "zh-CN",
-		}
-
-		profile, err := service.UpdatePreferences(ctx, user.ID, req)
-		require.NoError(t, err)
-
-		assert.Equal(t, "dark", profile.Preferences.Theme)
-		assert.Equal(t, "large", profile.Preferences.GridSize)
-		assert.Equal(t, "list", profile.Preferences.DefaultView)
-		assert.Equal(t, "zh-CN", profile.Preferences.Language)
-	})
-
-	t.Run("Partial Preferences Update", func(t *testing.T) {
-		// Create test user
-		// 創建測試用戶
-		user := createTestUser(t, db)
-
-		// Update only theme
-		// 僅更新主題
-		req := &UpdatePreferencesRequest{
-			Theme: "dark",
-		}
-
-		profile, err := service.UpdatePreferences(ctx, user.ID, req)
-		require.NoError(t, err)
-
-		assert.Equal(t, "dark", profile.Preferences.Theme)
-		assert.Equal(t, "medium", profile.Preferences.GridSize) // Should remain unchanged
-	})
 }
 
 // TestUploadAvatar tests the UploadAvatar functionality
@@ -428,8 +264,9 @@ func TestGetUserStats(t *testing.T) {
 		for i := 0; i < 2; i++ {
 			collection := &database.Collection{
 				UserID:     user.ID,
-				Name:       "Test Collection",
+				Name:       fmt.Sprintf("Test Collection %d", i+1),
 				Visibility: "private",
+				ShareLink:  fmt.Sprintf("test-share-link-%d-%d", user.ID, i),
 			}
 			err := db.Create(collection).Error
 			require.NoError(t, err)

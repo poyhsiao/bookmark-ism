@@ -7,21 +7,25 @@ import (
 	"time"
 
 	"bookmark-sync-service/backend/pkg/database"
-	"bookmark-sync-service/backend/pkg/storage"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
+// StorageClientInterface defines the interface for storage operations
+type StorageClientInterface interface {
+	UploadFile(ctx context.Context, objectName string, data []byte, contentType string) (string, error)
+}
+
 // Service handles user profile operations
 type Service struct {
 	db            *gorm.DB
-	storageClient *storage.Client
+	storageClient StorageClientInterface
 	logger        *zap.Logger
 }
 
 // NewService creates a new user service
-func NewService(db *gorm.DB, storageClient *storage.Client, logger *zap.Logger) *Service {
+func NewService(db *gorm.DB, storageClient StorageClientInterface, logger *zap.Logger) *Service {
 	return &Service{
 		db:            db,
 		storageClient: storageClient,

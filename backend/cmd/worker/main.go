@@ -42,7 +42,7 @@ func main() {
 	defer redisClient.Close()
 
 	// Initialize Supabase client
-	supabaseClient, err := supabase.NewClient(cfg.Supabase)
+	_, err = supabase.NewClient(cfg.Supabase)
 	if err != nil {
 		logger.Fatal("Failed to connect to Supabase", zap.Error(err))
 	}

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -12,13 +13,23 @@ import (
 )
 
 // Handler handles HTTP requests for authentication
+// ServiceInterface defines the interface for auth service operations
+type ServiceInterface interface {
+	Register(ctx context.Context, req *RegisterRequest) (*AuthResponse, error)
+	Login(ctx context.Context, req *LoginRequest) (*AuthResponse, error)
+	RefreshToken(ctx context.Context, req *RefreshRequest) (*AuthResponse, error)
+	Logout(ctx context.Context, userID uint) error
+	ResetPassword(ctx context.Context, req *ResetPasswordRequest) error
+	ValidateToken(tokenString string) (*UserInfo, error)
+}
+
 type Handler struct {
-	service *Service
+	service ServiceInterface
 	logger  *zap.Logger
 }
 
 // NewHandler creates a new authentication handler
-func NewHandler(service *Service, logger *zap.Logger) *Handler {
+func NewHandler(service ServiceInterface, logger *zap.Logger) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,

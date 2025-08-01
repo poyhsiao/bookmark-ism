@@ -157,17 +157,8 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Run("Wrong Signing Method", func(t *testing.T) {
 		router := setupTestRouter(jwtConfig, false)
 
-		// Generate token with wrong signing method
-		// 使用錯誤的簽名方法生成令牌
-		claims := jwt.MapClaims{
-			"user_id": float64(1),
-			"email":   "test@example.com",
-			"exp":     time.Now().Add(time.Hour).Unix(),
-		}
-
-		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims) // Wrong method
-		// This will fail to sign, but let's create a malformed token
-		// 這將無法簽名，但讓我們創建一個格式錯誤的令牌
+		// Create a malformed token
+		// 創建一個格式錯誤的令牌
 		tokenString := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature"
 
 		req, _ := http.NewRequest("GET", "/test", nil)

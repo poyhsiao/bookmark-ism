@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// Initialize database connection
-	db, err := database.NewConnection(cfg.Database)
+	_, err = database.NewConnection(cfg.Database)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}
@@ -41,7 +41,7 @@ func main() {
 	defer redisClient.Close()
 
 	// Initialize Supabase client
-	supabaseClient, err := supabase.NewClient(cfg.Supabase)
+	_, err = supabase.NewClient(cfg.Supabase)
 	if err != nil {
 		logger.Fatal("Failed to connect to Supabase", zap.Error(err))
 	}

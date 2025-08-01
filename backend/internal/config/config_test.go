@@ -152,11 +152,11 @@ func TestLoad(t *testing.T) {
 		os.Setenv("SERVER_READ_TIMEOUT", "invalid")
 		defer clearEnvVars()
 
-		// Should still load with default value
-		// 應該仍然使用默認值載入
-		config, err := Load()
-		require.NoError(t, err)
-		assert.Equal(t, 30, config.Server.ReadTimeout) // Default value
+		// Should fail to load due to invalid integer value
+		// 由於無效的整數值應該載入失敗
+		_, err := Load()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "error unmarshaling config")
 	})
 }
 

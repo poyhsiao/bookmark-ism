@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +23,7 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) Register(ctx interface{}, req *RegisterRequest) (*AuthResponse, error) {
+func (m *MockAuthService) Register(ctx context.Context, req *RegisterRequest) (*AuthResponse, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -30,7 +31,7 @@ func (m *MockAuthService) Register(ctx interface{}, req *RegisterRequest) (*Auth
 	return args.Get(0).(*AuthResponse), args.Error(1)
 }
 
-func (m *MockAuthService) Login(ctx interface{}, req *LoginRequest) (*AuthResponse, error) {
+func (m *MockAuthService) Login(ctx context.Context, req *LoginRequest) (*AuthResponse, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -38,7 +39,7 @@ func (m *MockAuthService) Login(ctx interface{}, req *LoginRequest) (*AuthRespon
 	return args.Get(0).(*AuthResponse), args.Error(1)
 }
 
-func (m *MockAuthService) RefreshToken(ctx interface{}, req *RefreshRequest) (*AuthResponse, error) {
+func (m *MockAuthService) RefreshToken(ctx context.Context, req *RefreshRequest) (*AuthResponse, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -46,12 +47,12 @@ func (m *MockAuthService) RefreshToken(ctx interface{}, req *RefreshRequest) (*A
 	return args.Get(0).(*AuthResponse), args.Error(1)
 }
 
-func (m *MockAuthService) Logout(ctx interface{}, userID uint) error {
+func (m *MockAuthService) Logout(ctx context.Context, userID uint) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)
 }
 
-func (m *MockAuthService) ResetPassword(ctx interface{}, req *ResetPasswordRequest) error {
+func (m *MockAuthService) ResetPassword(ctx context.Context, req *ResetPasswordRequest) error {
 	args := m.Called(ctx, req)
 	return args.Error(0)
 }

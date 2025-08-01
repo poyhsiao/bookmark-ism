@@ -48,7 +48,7 @@ func (m *MockMinioClient) RemoveObject(ctx context.Context, bucketName, objectNa
 	return args.Error(0)
 }
 
-func (m *MockMinioClient) PresignedGetObject(ctx context.Context, bucketName, objectName string, expiry time.Duration, reqParams map[string]string) (*url.URL, error) {
+func (m *MockMinioClient) PresignedGetObject(ctx context.Context, bucketName, objectName string, expiry time.Duration, reqParams url.Values) (*url.URL, error) {
 	args := m.Called(ctx, bucketName, objectName, expiry, reqParams)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
