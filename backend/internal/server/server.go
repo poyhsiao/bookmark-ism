@@ -10,6 +10,7 @@ import (
 	"bookmark-sync-service/backend/internal/bookmark"
 	"bookmark-sync-service/backend/internal/collection"
 	"bookmark-sync-service/backend/internal/config"
+	"bookmark-sync-service/backend/internal/content"
 	import_export "bookmark-sync-service/backend/internal/import"
 	"bookmark-sync-service/backend/internal/search"
 	"bookmark-sync-service/backend/internal/user"
@@ -44,6 +45,7 @@ type Server struct {
 	collectionHandler   *collection.Handler
 	searchHandler       *search.Handlers
 	importExportHandler *import_export.Handlers
+	contentHandler      *content.Handler
 }
 
 // NewServer creates a new server instance
@@ -88,6 +90,10 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 	importExportService := import_export.NewService(db)
 	importExportHandler := import_export.NewHandlers(importExportService)
 
+	// Create content service and handler
+	contentService := content.NewService()
+	contentHandler := content.NewHandler(contentService, cfg)
+
 	server := &Server{
 		config:              cfg,
 		db:                  db,
@@ -104,6 +110,7 @@ func NewServer(cfg *config.Config, db *gorm.DB, redisClient *redis.Client, supab
 		collectionHandler:   collectionHandler,
 		searchHandler:       searchHandler,
 		importExportHandler: importExportHandler,
+		contentHandler:      contentHandler,
 	}
 
 	server.setupMiddleware()
@@ -161,6 +168,9 @@ func (s *Server) setupRoutes() {
 
 			// Register import/export routes
 			s.importExportHandler.RegisterRoutes(protected)
+
+			// Register content analysis routes
+			s.contentHandler.RegisterRoutes(protected)
 
 			// Sync routes
 			sync := protected.Group("/sync")
