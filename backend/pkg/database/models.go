@@ -188,6 +188,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&SyncEvent{},
 		&SyncState{},
 		&Follow{},
+		&CollectionShare{},
+		&CollectionCollaborator{},
+		&CollectionFork{},
+		&ShareActivity{},
 	); err != nil {
 		return fmt.Errorf("failed to run auto migrations: %w", err)
 	}
@@ -211,6 +215,56 @@ func Rollback(db *gorm.DB) error {
 		&Bookmark{},
 		&User{},
 	)
+}
+
+// CollectionShare represents a shared collection
+type CollectionShare struct {
+	BaseModel
+	CollectionID uint       `gorm:"not null;index" json:"collection_id"`
+	UserID       uint       `gorm:"not null;index" json:"user_id"`
+	ShareType    string     `gorm:"not null;default:'private'" json:"share_type"`
+	Permission   string     `gorm:"not null;default:'view'" json:"permission"`
+	ShareToken   string     `gorm:"unique;not null;index" json:"share_token"`
+	Title        string     `gorm:"size:255" json:"title"`
+	Description  string     `gorm:"type:text" json:"description"`
+	Password     string     `gorm:"size:255" json:"-"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	ViewCount    int64      `gorm:"default:0" json:"view_count"`
+	IsActive     bool       `gorm:"default:true" json:"is_active"`
+}
+
+// CollectionCollaborator represents a collaborator on a shared collection
+type CollectionCollaborator struct {
+	BaseModel
+	CollectionID uint       `gorm:"not null;index" json:"collection_id"`
+	UserID       uint       `gorm:"not null;index" json:"user_id"`
+	InviterID    uint       `gorm:"not null" json:"inviter_id"`
+	Permission   string     `gorm:"not null;default:'view'" json:"permission"`
+	Status       string     `gorm:"not null;default:'pending'" json:"status"`
+	InvitedAt    time.Time  `json:"invited_at"`
+	AcceptedAt   *time.Time `json:"accepted_at"`
+}
+
+// CollectionFork represents a forked collection
+type CollectionFork struct {
+	BaseModel
+	OriginalID        uint   `gorm:"not null;index" json:"original_id"`
+	ForkedID          uint   `gorm:"not null;index" json:"forked_id"`
+	UserID            uint   `gorm:"not null;index" json:"user_id"`
+	ForkReason        string `gorm:"size:500" json:"fork_reason"`
+	PreserveBookmarks bool   `gorm:"default:true" json:"preserve_bookmarks"`
+	PreserveStructure bool   `gorm:"default:true" json:"preserve_structure"`
+}
+
+// ShareActivity represents activity on shared collections
+type ShareActivity struct {
+	BaseModel
+	ShareID      uint   `gorm:"not null;index" json:"share_id"`
+	UserID       *uint  `gorm:"index" json:"user_id"`
+	ActivityType string `gorm:"not null" json:"activity_type"`
+	IPAddress    string `gorm:"size:45" json:"ip_address"`
+	UserAgent    string `gorm:"size:500" json:"user_agent"`
+	Metadata     string `gorm:"type:json" json:"metadata"`
 }
 
 // createIndexes creates additional database indexes for performance

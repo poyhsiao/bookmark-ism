@@ -10,6 +10,8 @@ A self-hosted multi-user bookmark synchronization service that provides cross-br
 - **Import/Export**: Seamless bookmark migration from Chrome, Firefox, and Safari with data preservation
 - **Visual interface**: Grid-based bookmark management with preview thumbnails
 - **Intelligent content analysis**: Automatic tag suggestions, content categorization, and duplicate detection
+- **Sharing & Collaboration**: Public collection sharing, shareable links, and collaboration features
+- **Collection forking**: Fork and customize shared collections with bookmark preservation
 - **Social features**: Public collections, community discovery, and collaborative bookmarking
 - **Intelligent organization**: AI-powered tagging, categorization, and content discovery
 - **Self-hosted**: Complete data control with containerized deployment
@@ -217,6 +219,18 @@ make prod-down     # Stop production environment
 - `POST /api/v1/content/detect-duplicates` - Content similarity-based duplicate detection
 - `POST /api/v1/content/categorize` - Automatic content categorization into predefined categories
 - `POST /api/v1/content/bookmarks/:id/analyze` - Analyze existing bookmark content
+
+### Sharing & Collaboration ✅ IMPLEMENTED
+- `POST /api/v1/shares` - Create new collection share with access controls
+- `GET /api/v1/shares` - Get user's created shares with metadata
+- `GET /api/v1/shared/:token` - Access shared collection by token
+- `PUT /api/v1/shares/:id` - Update share settings and permissions
+- `DELETE /api/v1/shares/:id` - Delete collection share
+- `GET /api/v1/shares/:id/activity` - Get share activity logs and analytics
+- `GET /api/v1/collections/:id/shares` - Get all shares for a collection
+- `POST /api/v1/collections/:id/fork` - Fork shared collection with customization options
+- `POST /api/v1/collections/:id/collaborators` - Add collaborator to collection
+- `POST /api/v1/collaborations/:id/accept` - Accept collaboration invitation
 
 ## Configuration
 
