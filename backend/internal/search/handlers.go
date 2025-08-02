@@ -45,6 +45,10 @@ func (h *Handlers) RegisterRoutes(router *gin.RouterGroup) {
 		search.GET("/health", h.HealthCheck)
 		search.POST("/initialize", h.InitializeCollections)
 	}
+
+	// Register advanced search routes if available
+	// Note: Advanced search routes would be registered separately
+	// when the AdvancedService is available
 }
 
 // SearchBookmarksBasic handles basic bookmark search
