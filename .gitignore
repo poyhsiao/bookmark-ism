@@ -229,3 +229,8 @@ docs/.vuepress/dist/
 *_TEMP.md
 TEMP_*
 DEBUG_*
+
+
+# ignore all ai helper files
+/.roo/
+/.kiro/
