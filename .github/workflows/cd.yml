@@ -117,7 +117,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
+      uses: azure/setup-kubectl@v4
       with:
         version: 'v1.28.0'
 
@@ -193,7 +193,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
+      uses: azure/setup-kubectl@v4
       with:
         version: 'v1.28.0'
 
@@ -283,7 +283,7 @@ jobs:
 
     steps:
     - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
+      uses: azure/setup-kubectl@v4
       with:
         version: 'v1.28.0'
 
