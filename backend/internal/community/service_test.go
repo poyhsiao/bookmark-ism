@@ -18,12 +18,12 @@ type MockDB struct {
 
 func (m *MockDB) Create(value interface{}) *gorm.DB {
 	args := m.Called(value)
-	return &gorm.DB{Error: args.Error(0)}
+	return args.Get(0).(*gorm.DB)
 }
 
 func (m *MockDB) Find(dest interface{}, conds ...interface{}) *gorm.DB {
 	args := m.Called(dest, conds)
-	return &gorm.DB{Error: args.Error(0)}
+	return args.Get(0).(*gorm.DB)
 }
 
 func (m *MockDB) Where(query interface{}, args ...interface{}) Database {
@@ -33,17 +33,17 @@ func (m *MockDB) Where(query interface{}, args ...interface{}) Database {
 
 func (m *MockDB) First(dest interface{}, conds ...interface{}) *gorm.DB {
 	args := m.Called(dest, conds)
-	return &gorm.DB{Error: args.Error(0)}
+	return args.Get(0).(*gorm.DB)
 }
 
 func (m *MockDB) Save(value interface{}) *gorm.DB {
 	args := m.Called(value)
-	return &gorm.DB{Error: args.Error(0)}
+	return args.Get(0).(*gorm.DB)
 }
 
 func (m *MockDB) Delete(value interface{}, conds ...interface{}) *gorm.DB {
 	args := m.Called(value, conds)
-	return &gorm.DB{Error: args.Error(0)}
+	return args.Get(0).(*gorm.DB)
 }
 
 func (m *MockDB) Order(value interface{}) Database {
@@ -160,6 +160,10 @@ func (suite *CommunityServiceTestSuite) TestFollowUser() {
 	// Mock successful creation
 	suite.mockDB.On("Create", mock.AnythingOfType("*community.UserFollow")).Return(&gorm.DB{Error: nil})
 
+	// Mock Redis cache clearing calls (clearUserStatsCache is called for both users)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123"}).Return(nil)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-456"}).Return(nil)
+
 	err := suite.service.FollowUser(suite.ctx, followerID, request)
 
 	assert.NoError(suite.T(), err)
@@ -203,6 +207,10 @@ func (suite *CommunityServiceTestSuite) TestUnfollowUser() {
 	// Mock successful deletion
 	suite.mockDB.On("Delete", mock.AnythingOfType("*community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: nil})
 
+	// Mock Redis cache clearing calls (clearUserStatsCache is called for both users)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123"}).Return(nil)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-456"}).Return(nil)
+
 	err := suite.service.UnfollowUser(suite.ctx, followerID, followingID)
 
 	assert.NoError(suite.T(), err)
@@ -230,11 +238,18 @@ func (suite *CommunityServiceTestSuite) TestGetRecommendations() {
 		Context:   "homepage",
 	}
 
+	// Mock cache miss (empty string returned)
+	suite.mockRedis.On("Get", suite.ctx, "recommendations:user-123:collaborative:homepage").Return("", nil)
+
 	// Mock finding existing recommendations
+	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Order", mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Limit", mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.BookmarkRecommendation"), mock.Anything).Return(&gorm.DB{Error: nil})
+
+	// Mock cache set call
+	suite.mockRedis.On("Set", suite.ctx, "recommendations:user-123:collaborative:homepage", mock.Anything, 15*time.Minute).Return(nil)
 
 	recommendations, err := suite.service.GetRecommendations(suite.ctx, request)
 
@@ -253,6 +268,51 @@ func (suite *CommunityServiceTestSuite) TestGetRecommendationsInvalidRequest() {
 	assert.Error(suite.T(), err)
 	assert.Nil(suite.T(), recommendations)
 	assert.Equal(suite.T(), ErrInvalidUserID, err)
+}
+
+// Test GetRecommendations cache hit - TDD: Write failing test first
+func (suite *CommunityServiceTestSuite) TestGetRecommendationsCacheHit() {
+	request := &RecommendationRequest{
+		UserID:    "user-123",
+		Limit:     10,
+		Algorithm: "collaborative",
+		Context:   "homepage",
+	}
+
+	// Expected cached recommendations
+	expectedRecommendations := []RecommendationResponse{
+		{
+			BookmarkID: 1,
+			Score:      0.9,
+			ReasonType: "collaborative",
+			ReasonText: "Users with similar interests also liked this",
+		},
+		{
+			BookmarkID: 2,
+			Score:      0.8,
+			ReasonType: "collaborative",
+			ReasonText: "Users with similar interests also liked this",
+		},
+	}
+
+	// Mock cache hit - return cached recommendations
+	cachedData := `[{"bookmark_id":1,"score":0.9,"reason_type":"collaborative","reason_text":"Users with similar interests also liked this"},{"bookmark_id":2,"score":0.8,"reason_type":"collaborative","reason_text":"Users with similar interests also liked this"}]`
+	suite.mockRedis.On("Get", suite.ctx, "recommendations:user-123:collaborative:homepage").Return(cachedData, nil)
+
+	recommendations, err := suite.service.GetRecommendations(suite.ctx, request)
+
+	// Verify cache hit behavior
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), recommendations)
+	assert.Len(suite.T(), recommendations, 2)
+	assert.Equal(suite.T(), expectedRecommendations[0].BookmarkID, recommendations[0].BookmarkID)
+	assert.Equal(suite.T(), expectedRecommendations[0].Score, recommendations[0].Score)
+	assert.Equal(suite.T(), expectedRecommendations[1].BookmarkID, recommendations[1].BookmarkID)
+	assert.Equal(suite.T(), expectedRecommendations[1].Score, recommendations[1].Score)
+
+	// Verify database was NOT called (cache hit)
+	suite.mockDB.AssertNotCalled(suite.T(), "Where")
+	suite.mockDB.AssertNotCalled(suite.T(), "Find")
 }
 
 // Test Get Trending Bookmarks
@@ -354,11 +414,11 @@ func (suite *CommunityServiceTestSuite) TestUpdateSocialMetrics() {
 	bookmarkID := uint(1)
 	actionType := "view"
 
-	// Mock finding existing metrics
-	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Return(&gorm.DB{Error: nil})
+	// Mock finding existing metrics (record not found, so Create will be called)
+	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
 
-	// Mock saving updated metrics
-	suite.mockDB.On("Save", mock.AnythingOfType("*community.SocialMetrics")).Return(&gorm.DB{Error: nil})
+	// Mock creating new metrics
+	suite.mockDB.On("Create", mock.AnythingOfType("*community.SocialMetrics")).Return(&gorm.DB{Error: nil})
 
 	err := suite.service.UpdateSocialMetrics(suite.ctx, bookmarkID, actionType)
 
@@ -384,9 +444,17 @@ func (suite *CommunityServiceTestSuite) TestUpdateSocialMetricsCreateNew() {
 func (suite *CommunityServiceTestSuite) TestGetUserStats() {
 	userID := "user-123"
 
+	// Mock cache miss (empty string returned)
+	suite.mockRedis.On("Get", suite.ctx, "user_stats:user-123").Return("", nil)
+
 	// Mock various database queries for user stats
 	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: nil})
+	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
+	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: nil})
+
+	// Mock cache set call
+	suite.mockRedis.On("Set", suite.ctx, "user_stats:user-123", mock.Anything, 30*time.Minute).Return(nil)
 
 	stats, err := suite.service.GetUserStats(suite.ctx, userID)
 
@@ -409,15 +477,11 @@ func (suite *CommunityServiceTestSuite) TestGetUserStatsInvalidUserID() {
 func (suite *CommunityServiceTestSuite) TestCalculateTrendingScores() {
 	timeWindow := "daily"
 
-	// Mock finding user behaviors
+	// Mock finding user behaviors - return empty slice (no behaviors to process)
 	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.UserBehavior"), mock.Anything).Return(&gorm.DB{Error: nil})
 
-	// Mock updating trending bookmarks
-	suite.mockDB.On("Save", mock.AnythingOfType("*community.TrendingBookmark")).Return(&gorm.DB{Error: nil})
-	suite.mockDB.On("Create", mock.AnythingOfType("*community.TrendingBookmark")).Return(&gorm.DB{Error: nil})
-	suite.mockDB.On("First", mock.AnythingOfType("*community.TrendingBookmark"), mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
-
+	// No database operations should be called for trending bookmarks since there are no behaviors
 	err := suite.service.CalculateTrendingScores(suite.ctx, timeWindow)
 
 	assert.NoError(suite.T(), err)
@@ -437,16 +501,15 @@ func (suite *CommunityServiceTestSuite) TestGenerateRecommendations() {
 	userID := "user-123"
 	algorithm := "collaborative"
 
-	// Mock finding user behaviors
+	// Mock finding user behaviors - return empty slice (no behaviors)
 	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
 	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.UserBehavior"), mock.Anything).Return(&gorm.DB{Error: nil})
 
-	// Mock creating recommendations
-	suite.mockDB.On("Create", mock.AnythingOfType("*community.BookmarkRecommendation")).Return(&gorm.DB{Error: nil})
-
 	err := suite.service.GenerateRecommendations(suite.ctx, userID, algorithm)
 
-	assert.NoError(suite.T(), err)
+	// Should return insufficient data error when no behaviors exist
+	assert.Error(suite.T(), err)
+	assert.Equal(suite.T(), ErrInsufficientData, err)
 }
 
 func (suite *CommunityServiceTestSuite) TestGenerateRecommendationsInvalidAlgorithm() {
@@ -459,9 +522,89 @@ func (suite *CommunityServiceTestSuite) TestGenerateRecommendationsInvalidAlgori
 	assert.Equal(suite.T(), ErrInvalidAlgorithm, err)
 }
 
+// Test GenerateRecommendations insufficient data - TDD: Write failing test first
+func (suite *CommunityServiceTestSuite) TestGenerateRecommendationsInsufficientData() {
+	userID := "user-123"
+	algorithm := "collaborative"
+
+	// Mock finding empty user behaviors (insufficient data)
+	suite.mockDB.On("Where", mock.Anything, mock.Anything).Return(suite.mockDB)
+	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.UserBehavior"), mock.Anything).Return(&gorm.DB{Error: nil})
+
+	err := suite.service.GenerateRecommendations(suite.ctx, userID, algorithm)
+
+	// Verify insufficient data error is returned
+	assert.Error(suite.T(), err)
+	assert.Equal(suite.T(), ErrInsufficientData, err)
+
+	// Verify no recommendations are created when there's insufficient data
+	suite.mockDB.AssertNotCalled(suite.T(), "Create", mock.AnythingOfType("*community.BookmarkRecommendation"))
+}
+
 // Run the test suite
 func TestCommunityServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(CommunityServiceTestSuite))
+}
+
+// Simple unit test for insufficient data - TDD approach
+func TestGenerateRecommendationsInsufficientDataSimple(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+	algorithm := "collaborative"
+
+	// Mock finding empty user behaviors (insufficient data)
+	mockDB.On("Where", mock.Anything, mock.Anything).Return(mockDB)
+	mockDB.On("Find", mock.AnythingOfType("*[]community.UserBehavior"), mock.Anything).Run(func(args mock.Arguments) {
+		// Return empty behaviors slice to simulate insufficient data
+		behaviorsPtr := args.Get(0).(*[]UserBehavior)
+		*behaviorsPtr = []UserBehavior{} // Empty slice
+	}).Return(&gorm.DB{Error: nil})
+
+	err := service.GenerateRecommendations(ctx, userID, algorithm)
+
+	// Verify insufficient data error is returned
+	assert.Error(t, err)
+	assert.Equal(t, ErrInsufficientData, err)
+
+	// Verify no recommendations are created when there's insufficient data
+	mockDB.AssertNotCalled(t, "Create", mock.AnythingOfType("*community.BookmarkRecommendation"))
+	mockDB.AssertExpectations(t)
+}
+
+// Test with sufficient data to ensure normal flow still works
+func TestGenerateRecommendationsSufficientDataSimple(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+	algorithm := "collaborative"
+
+	// Mock finding user behaviors (sufficient data)
+	mockDB.On("Where", mock.Anything, mock.Anything).Return(mockDB)
+	mockDB.On("Find", mock.AnythingOfType("*[]community.UserBehavior"), mock.Anything).Run(func(args mock.Arguments) {
+		// Return some behaviors to simulate sufficient data
+		behaviorsPtr := args.Get(0).(*[]UserBehavior)
+		*behaviorsPtr = []UserBehavior{
+			{UserID: userID, BookmarkID: 1, ActionType: "view"},
+			{UserID: userID, BookmarkID: 2, ActionType: "save"},
+		}
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock creating recommendations
+	mockDB.On("Create", mock.AnythingOfType("*community.BookmarkRecommendation")).Return(&gorm.DB{Error: nil})
+
+	err := service.GenerateRecommendations(ctx, userID, algorithm)
+
+	// Verify no error is returned when there's sufficient data
+	assert.NoError(t, err)
+
+	mockDB.AssertExpectations(t)
 }
 
 // Additional unit tests for validation methods

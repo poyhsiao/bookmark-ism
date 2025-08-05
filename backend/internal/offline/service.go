@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"bookmark-sync-service/backend/internal/config"
 	"bookmark-sync-service/backend/pkg/database"
 
 	"gorm.io/gorm"
@@ -271,7 +272,7 @@ func (s *Service) updateQueuedChange(ctx context.Context, change *OfflineChange)
 func (s *Service) CheckConnectivity(ctx context.Context) bool {
 	// Simple connectivity check - try to make a HEAD request to a reliable endpoint
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: config.ConnectivityCheckTimeout,
 	}
 
 	resp, err := client.Head("https://www.google.com")

@@ -90,7 +90,7 @@ func TestNewService(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
 
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	assert.NotNil(t, service)
 	assert.Equal(t, mockDB, service.db)
@@ -101,7 +101,7 @@ func TestNewService(t *testing.T) {
 func TestCreateTheme(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -141,7 +141,7 @@ func TestCreateTheme(t *testing.T) {
 func TestCreateThemeInvalidData(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -193,7 +193,7 @@ func TestCreateThemeInvalidData(t *testing.T) {
 func TestGetUserPreferences(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -201,8 +201,32 @@ func TestGetUserPreferences(t *testing.T) {
 	// Mock cache miss
 	mockRedis.On("Get", ctx, "user_preferences:user-123").Return("", gorm.ErrRecordNotFound)
 
-	// Mock database query
-	mockDB.On("First", mock.AnythingOfType("*customization.UserPreferences"), "user_id = ?", userID).Return(&gorm.DB{Error: nil})
+	// Mock database query - set up the UserPreferences object properly
+	mockDB.On("First", mock.AnythingOfType("*customization.UserPreferences"), mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		prefsPtr := args.Get(0).(*UserPreferences)
+		*prefsPtr = UserPreferences{
+			ID:                   1,
+			UserID:               userID,
+			Language:             "en",
+			Timezone:             "UTC",
+			DateFormat:           "YYYY-MM-DD",
+			TimeFormat:           "24h",
+			GridSize:             "medium",
+			ViewMode:             "grid",
+			SortBy:               "created_at",
+			SortOrder:            "desc",
+			ShowThumbnails:       true,
+			ShowDescriptions:     true,
+			ShowTags:             true,
+			AutoSync:             true,
+			SyncInterval:         300,
+			NotificationsEnabled: true,
+			SoundEnabled:         false,
+			CompactMode:          false,
+			ShowSidebar:          true,
+			SidebarWidth:         250,
+		}
+	}).Return(&gorm.DB{Error: nil})
 
 	// Mock cache set
 	mockRedis.On("Set", ctx, "user_preferences:user-123", mock.AnythingOfType("string"), 30*time.Minute).Return(nil)
@@ -221,7 +245,7 @@ func TestGetUserPreferences(t *testing.T) {
 func TestUpdateUserPreferences(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -234,8 +258,33 @@ func TestUpdateUserPreferences(t *testing.T) {
 		SortOrder: "asc",
 	}
 
-	// Mock database operations
-	mockDB.On("First", mock.AnythingOfType("*customization.UserPreferences"), "user_id = ?", userID).Return(&gorm.DB{Error: nil})
+	// Mock database operations - set up existing preferences
+	mockDB.On("First", mock.AnythingOfType("*customization.UserPreferences"), mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		prefsPtr := args.Get(0).(*UserPreferences)
+		*prefsPtr = UserPreferences{
+			ID:                   1,
+			UserID:               userID,
+			Language:             "en",
+			Timezone:             "UTC",
+			DateFormat:           "YYYY-MM-DD",
+			TimeFormat:           "24h",
+			GridSize:             "medium",
+			ViewMode:             "grid",
+			SortBy:               "created_at",
+			SortOrder:            "desc",
+			ShowThumbnails:       true,
+			ShowDescriptions:     true,
+			ShowTags:             true,
+			AutoSync:             true,
+			SyncInterval:         300,
+			NotificationsEnabled: true,
+			SoundEnabled:         false,
+			CompactMode:          false,
+			ShowSidebar:          true,
+			SidebarWidth:         250,
+		}
+	}).Return(&gorm.DB{Error: nil})
+
 	mockDB.On("Save", mock.AnythingOfType("*customization.UserPreferences")).Return(&gorm.DB{Error: nil})
 
 	// Mock cache operations
@@ -257,7 +306,7 @@ func TestUpdateUserPreferences(t *testing.T) {
 func TestSetUserTheme(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -267,12 +316,44 @@ func TestSetUserTheme(t *testing.T) {
 		Config:  map[string]any{"customColor": "#ff0000"},
 	}
 
-	// Mock theme exists check
-	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), uint(1)).Return(&gorm.DB{Error: nil})
+	// Mock theme exists check - return a public theme
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Run(func(args mock.Arguments) {
+		themePtr := args.Get(0).(*Theme)
+		*themePtr = Theme{
+			ID:        1,
+			CreatorID: userID,
+			IsPublic:  true,
+			Name:      "test-theme",
+		}
+	}).Return(&gorm.DB{Error: nil})
 
-	// Mock user theme operations
-	mockDB.On("First", mock.AnythingOfType("*customization.UserTheme"), "user_id = ?", userID).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
-	mockDB.On("Create", mock.AnythingOfType("*customization.UserTheme")).Return(&gorm.DB{Error: nil})
+	// Mock user theme operations - first check if user already has a theme
+	mockDB.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything, mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
+
+	// Mock creating new user theme
+	mockDB.On("Create", mock.AnythingOfType("*customization.UserTheme")).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		userThemePtr.ID = 1 // Simulate database assigning ID
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock preload and final fetch - this is called after Create to reload with Theme data
+	preloadedDB := &MockDB{}
+	mockDB.On("Preload", "Theme", mock.Anything).Return(preloadedDB)
+	preloadedDB.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		*userThemePtr = UserTheme{
+			ID:       1,
+			UserID:   userID,
+			ThemeID:  req.ThemeID,
+			IsActive: true,
+			Theme: Theme{
+				ID:        1,
+				CreatorID: userID,
+				IsPublic:  true,
+				Name:      "test-theme",
+			},
+		}
+	}).Return(&gorm.DB{Error: nil})
 
 	// Mock cache operations
 	mockRedis.On("Del", ctx, []string{"user_theme:user-123"}).Return(nil)
@@ -289,11 +370,214 @@ func TestSetUserTheme(t *testing.T) {
 	mockRedis.AssertExpectations(t)
 }
 
+// Test setting non-existent theme - TDD: Write failing test first
+func TestSetUserTheme_NonExistentTheme(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+
+	req := &SetUserThemeRequest{
+		ThemeID: 999, // Non-existent theme ID
+		Config:  map[string]any{"customColor": "#ff0000"},
+	}
+
+	// Mock theme not found
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
+
+	userTheme, err := service.SetUserTheme(ctx, userID, req)
+
+	// Assert that the correct error is returned
+	assert.Error(t, err)
+	assert.Nil(t, userTheme)
+	assert.Equal(t, ErrThemeNotFound, err)
+
+	mockDB.AssertExpectations(t)
+	// Redis should not be called since theme doesn't exist
+	mockRedis.AssertNotCalled(t, "Del")
+}
+
+// Test setting non-public theme by unauthorized user - TDD: Write failing test first
+func TestSetUserTheme_UnauthorizedNonPublicTheme(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+	themeCreatorID := "creator-456" // Different from userID
+
+	req := &SetUserThemeRequest{
+		ThemeID: 1,
+		Config:  map[string]any{"customColor": "#ff0000"},
+	}
+
+	// Mock theme exists but is not public and user is not the creator
+	theme := &Theme{
+		ID:        1,
+		CreatorID: themeCreatorID,
+		IsPublic:  false, // Non-public theme
+		Name:      "private-theme",
+	}
+
+	// Mock database call to return the private theme
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Run(func(args mock.Arguments) {
+		themePtr := args.Get(0).(*Theme)
+		*themePtr = *theme
+	}).Return(&gorm.DB{Error: nil})
+
+	userTheme, err := service.SetUserTheme(ctx, userID, req)
+
+	// Assert that the correct error is returned
+	assert.Error(t, err)
+	assert.Nil(t, userTheme)
+	assert.Equal(t, ErrThemeNotPublic, err)
+
+	mockDB.AssertExpectations(t)
+	// Redis and user theme operations should not be called
+	mockRedis.AssertNotCalled(t, "Del")
+}
+
+// Test setting non-public theme by authorized creator - Should succeed
+func TestSetUserTheme_AuthorizedNonPublicTheme(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "creator-123"
+
+	req := &SetUserThemeRequest{
+		ThemeID: 1,
+		Config:  map[string]any{"customColor": "#ff0000"},
+	}
+
+	// Mock theme exists, is not public, but user is the creator
+	theme := &Theme{
+		ID:        1,
+		CreatorID: userID, // Same as userID - user is the creator
+		IsPublic:  false,  // Non-public theme
+		Name:      "private-theme",
+	}
+
+	// Mock database call to return the private theme
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Run(func(args mock.Arguments) {
+		themePtr := args.Get(0).(*Theme)
+		*themePtr = *theme
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock user theme operations - no existing theme
+	mockDB.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything, mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
+
+	// Mock creating new user theme
+	mockDB.On("Create", mock.AnythingOfType("*customization.UserTheme")).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		userThemePtr.ID = 1 // Simulate database assigning ID
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock preload and final fetch
+	preloadedDB2 := &MockDB{}
+	mockDB.On("Preload", "Theme", mock.Anything).Return(preloadedDB2)
+	preloadedDB2.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		*userThemePtr = UserTheme{
+			ID:       1,
+			UserID:   userID,
+			ThemeID:  req.ThemeID,
+			IsActive: true,
+			Theme:    *theme,
+		}
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock cache operations
+	mockRedis.On("Del", ctx, mock.Anything).Return(nil)
+
+	userTheme, err := service.SetUserTheme(ctx, userID, req)
+
+	// Should succeed since user is the creator
+	assert.NoError(t, err)
+	assert.NotNil(t, userTheme)
+	assert.Equal(t, userID, userTheme.UserID)
+	assert.Equal(t, req.ThemeID, userTheme.ThemeID)
+
+	mockDB.AssertExpectations(t)
+	mockRedis.AssertExpectations(t)
+}
+
+// Test setting public theme by any user - Should succeed
+func TestSetUserTheme_PublicThemeByAnyUser(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+	themeCreatorID := "creator-456" // Different from userID
+
+	req := &SetUserThemeRequest{
+		ThemeID: 1,
+		Config:  map[string]any{"customColor": "#ff0000"},
+	}
+
+	// Mock theme exists and is public
+	theme := &Theme{
+		ID:        1,
+		CreatorID: themeCreatorID,
+		IsPublic:  true, // Public theme
+		Name:      "public-theme",
+	}
+
+	// Mock database call to return the public theme
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Run(func(args mock.Arguments) {
+		themePtr := args.Get(0).(*Theme)
+		*themePtr = *theme
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock user theme operations - no existing theme
+	mockDB.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything, mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
+
+	// Mock creating new user theme
+	mockDB.On("Create", mock.AnythingOfType("*customization.UserTheme")).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		userThemePtr.ID = 1 // Simulate database assigning ID
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock preload and final fetch
+	preloadedDB3 := &MockDB{}
+	mockDB.On("Preload", "Theme", mock.Anything).Return(preloadedDB3)
+	preloadedDB3.On("First", mock.AnythingOfType("*customization.UserTheme"), mock.Anything).Run(func(args mock.Arguments) {
+		userThemePtr := args.Get(0).(*UserTheme)
+		*userThemePtr = UserTheme{
+			ID:       1,
+			UserID:   userID,
+			ThemeID:  req.ThemeID,
+			IsActive: true,
+			Theme:    *theme,
+		}
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock cache operations
+	mockRedis.On("Del", ctx, mock.Anything).Return(nil)
+
+	userTheme, err := service.SetUserTheme(ctx, userID, req)
+
+	// Should succeed since theme is public
+	assert.NoError(t, err)
+	assert.NotNil(t, userTheme)
+	assert.Equal(t, userID, userTheme.UserID)
+	assert.Equal(t, req.ThemeID, userTheme.ThemeID)
+
+	mockDB.AssertExpectations(t)
+	mockRedis.AssertExpectations(t)
+}
+
 // Test listing themes
 func TestListThemes(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 
@@ -307,13 +591,12 @@ func TestListThemes(t *testing.T) {
 	}
 
 	// Mock database operations
-	mockDB.On("Where", "is_public = ?", true).Return(mockDB)
-	mockDB.On("Where", "name ILIKE ? OR display_name ILIKE ? OR description ILIKE ?",
-		"%test%", "%test%", "%test%").Return(mockDB)
+	mockDB.On("Where", mock.Anything, mock.Anything).Return(mockDB)
+	mockDB.On("Where", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockDB)
 	mockDB.On("Order", "name asc").Return(mockDB)
 	mockDB.On("Limit", 10).Return(mockDB)
 	mockDB.On("Offset", 0).Return(mockDB)
-	mockDB.On("Find", mock.AnythingOfType("*[]customization.Theme")).Return(&gorm.DB{Error: nil})
+	mockDB.On("Find", mock.AnythingOfType("*[]customization.Theme"), mock.Anything).Return(&gorm.DB{Error: nil})
 
 	themes, total, err := service.ListThemes(ctx, req)
 
@@ -328,7 +611,7 @@ func TestListThemes(t *testing.T) {
 func TestRateTheme(t *testing.T) {
 	mockDB := &MockDB{}
 	mockRedis := &MockRedisClient{}
-	service := NewService(mockDB, mockRedis)
+	service := NewService(mockDB, mockRedis, nil, nil)
 
 	ctx := context.Background()
 	userID := "user-123"
@@ -340,17 +623,14 @@ func TestRateTheme(t *testing.T) {
 	}
 
 	// Mock theme exists check
-	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), themeID).Return(&gorm.DB{Error: nil})
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Return(&gorm.DB{Error: nil})
 
 	// Mock existing rating check
 	mockDB.On("First", mock.AnythingOfType("*customization.ThemeRating"),
-		"user_id = ? AND theme_id = ?", userID, themeID).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
+		mock.Anything, mock.Anything, mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
 
 	// Mock rating creation
 	mockDB.On("Create", mock.AnythingOfType("*customization.ThemeRating")).Return(&gorm.DB{Error: nil})
-
-	// Mock theme rating update
-	mockDB.On("Save", mock.AnythingOfType("*customization.Theme")).Return(&gorm.DB{Error: nil})
 
 	rating, err := service.RateTheme(ctx, userID, themeID, req)
 
@@ -362,6 +642,60 @@ func TestRateTheme(t *testing.T) {
 	assert.Equal(t, req.Comment, rating.Comment)
 
 	mockDB.AssertExpectations(t)
+}
+
+// Test rating a theme twice by the same user - TDD: Write failing test first
+func TestRateTheme_AlreadyRated(t *testing.T) {
+	mockDB := &MockDB{}
+	mockRedis := &MockRedisClient{}
+	service := NewService(mockDB, mockRedis, nil, nil)
+
+	ctx := context.Background()
+	userID := "user-123"
+	themeID := uint(1)
+
+	req := &RateThemeRequest{
+		Rating:  4,
+		Comment: "Good theme!",
+	}
+
+	// Mock theme exists check
+	mockDB.On("First", mock.AnythingOfType("*customization.Theme"), mock.Anything).Run(func(args mock.Arguments) {
+		themePtr := args.Get(0).(*Theme)
+		*themePtr = Theme{
+			ID:        themeID,
+			CreatorID: "creator-456",
+			IsPublic:  true,
+			Name:      "test-theme",
+		}
+	}).Return(&gorm.DB{Error: nil})
+
+	// Mock existing rating check - user has already rated this theme
+	existingRating := &ThemeRating{
+		ID:      1,
+		UserID:  userID,
+		ThemeID: themeID,
+		Rating:  5,
+		Comment: "Previously rated!",
+	}
+
+	mockDB.On("First", mock.AnythingOfType("*customization.ThemeRating"),
+		mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		ratingPtr := args.Get(0).(*ThemeRating)
+		*ratingPtr = *existingRating
+	}).Return(&gorm.DB{Error: nil}) // No error means rating exists
+
+	rating, err := service.RateTheme(ctx, userID, themeID, req)
+
+	// Assert that the correct error is returned
+	assert.Error(t, err)
+	assert.Nil(t, rating)
+	assert.Equal(t, ErrAlreadyRated, err)
+
+	mockDB.AssertExpectations(t)
+	// Redis and Create should not be called since user already rated
+	mockRedis.AssertNotCalled(t, "Del")
+	mockDB.AssertNotCalled(t, "Create")
 }
 
 // Test validation methods

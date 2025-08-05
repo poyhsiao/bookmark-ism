@@ -8,8 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"bookmark-sync-service/backend/internal/config"
 	"bookmark-sync-service/backend/pkg/middleware"
 	"bookmark-sync-service/backend/pkg/utils"
+	"bookmark-sync-service/backend/pkg/validation"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -27,23 +29,25 @@ type ServiceInterface interface {
 
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service ServiceInterface
-	logger  *zap.Logger
+	service   ServiceInterface
+	logger    *zap.Logger
+	validator *validation.RequestValidator
 }
 
 // NewHandler creates a new user handler
 func NewHandler(service ServiceInterface, logger *zap.Logger) *Handler {
 	return &Handler{
-		service: service,
-		logger:  logger,
+		service:   service,
+		logger:    logger,
+		validator: validation.NewRequestValidator(),
 	}
 }
 
 // GetProfile returns the current user's profile
 func (h *Handler) GetProfile(c *gin.Context) {
-	userID, err := h.getUserIDFromContext(c)
+	userID, err := h.validator.UserIDFromContext(c)
 	if err != nil {
-		utils.UnauthorizedResponse(c, "User not authenticated")
+		h.validator.HandleUnauthorizedError(c, config.ErrUserNotAuthenticated)
 		return
 	}
 
@@ -59,11 +63,11 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		}
 
 		if err.Error() == "user not found" {
-			utils.NotFoundResponse(c, "User")
+			h.validator.HandleNotFoundError(c, "User")
 			return
 		}
 
-		utils.InternalErrorResponse(c, "Failed to get profile")
+		h.validator.HandleInternalError(c, "Failed to get profile")
 		return
 	}
 
@@ -76,17 +80,15 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 // UpdateProfile updates the current user's profile
 func (h *Handler) UpdateProfile(c *gin.Context) {
-	userID, err := h.getUserIDFromContext(c)
+	userID, err := h.validator.UserIDFromContext(c)
 	if err != nil {
-		utils.UnauthorizedResponse(c, "User not authenticated")
+		h.validator.HandleUnauthorizedError(c, config.ErrUserNotAuthenticated)
 		return
 	}
 
 	var req UpdateProfileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ValidationErrorResponse(c, map[string]interface{}{
-			"validation_errors": err.Error(),
-		})
+	if err := h.validator.BindAndValidateJSON(c, &req); err != nil {
+		h.validator.HandleValidationError(c, err)
 		return
 	}
 

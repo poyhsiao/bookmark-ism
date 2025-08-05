@@ -22,6 +22,7 @@ type Service struct {
 	db            *gorm.DB
 	storageClient StorageClientInterface
 	logger        *zap.Logger
+	validator     *PreferenceValidator
 }
 
 // NewService creates a new user service
@@ -30,6 +31,7 @@ func NewService(db *gorm.DB, storageClient StorageClientInterface, logger *zap.L
 		db:            db,
 		storageClient: storageClient,
 		logger:        logger,
+		validator:     NewPreferenceValidator(),
 	}
 }
 
@@ -178,6 +180,11 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uint, req *UpdatePro
 
 // UpdatePreferences updates a user's preferences
 func (s *Service) UpdatePreferences(ctx context.Context, userID uint, req *UpdatePreferencesRequest) (*UserProfile, error) {
+	// Validate preferences first
+	if err := s.validator.ValidatePreferences(req); err != nil {
+		return nil, err
+	}
+
 	var user database.User
 	if err := s.db.First(&user, userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

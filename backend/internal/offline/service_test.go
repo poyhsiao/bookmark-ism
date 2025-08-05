@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"bookmark-sync-service/backend/internal/config"
 	"bookmark-sync-service/backend/pkg/database"
 
 	"github.com/stretchr/testify/assert"
@@ -116,7 +117,7 @@ func (suite *OfflineServiceTestSuite) TestCacheBookmark() {
 	}
 
 	// Mock Redis operations
-	suite.redisClient.On("Set", mock.Anything, "offline:bookmark:1:1", mock.Anything, time.Hour*24).Return(nil)
+	suite.redisClient.On("Set", mock.Anything, "offline:bookmark:1:1", mock.Anything, config.DefaultCacheTTL).Return(nil)
 
 	err := suite.service.CacheBookmark(context.Background(), bookmark)
 	suite.NoError(err)
@@ -161,7 +162,7 @@ func (suite *OfflineServiceTestSuite) TestQueueOfflineChange() {
 	}
 
 	// Mock Redis operations
-	suite.redisClient.On("Set", mock.Anything, "offline:queue:1:change-1", mock.Anything, time.Hour*24*7).Return(nil)
+	suite.redisClient.On("Set", mock.Anything, "offline:queue:1:change-1", mock.Anything, config.OfflineQueueTTL).Return(nil)
 
 	err := suite.service.QueueOfflineChange(context.Background(), change)
 	suite.NoError(err)
@@ -194,7 +195,7 @@ func (suite *OfflineServiceTestSuite) TestGetOfflineStatus() {
 
 func (suite *OfflineServiceTestSuite) TestSetOfflineStatus() {
 	// Mock Redis operations
-	suite.redisClient.On("Set", mock.Anything, "offline:status:1", "offline", time.Hour).Return(nil)
+	suite.redisClient.On("Set", mock.Anything, "offline:status:1", "offline", config.OfflineStatusTTL).Return(nil)
 
 	err := suite.service.SetOfflineStatus(context.Background(), 1, "offline")
 	suite.NoError(err)

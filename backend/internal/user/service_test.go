@@ -67,11 +67,13 @@ func setupTestService(t *testing.T) (*Service, *gorm.DB, *MockStorageClient) {
 // createTestUser creates a test user in the database
 // createTestUser 在資料庫中創建測試用戶
 func createTestUser(t *testing.T, db *gorm.DB) *database.User {
+	// Use test name to create unique users
+	testName := t.Name()
 	user := &database.User{
-		Email:       "test@example.com",
-		Username:    "testuser",
+		Email:       fmt.Sprintf("test-%s@example.com", testName),
+		Username:    fmt.Sprintf("testuser-%s", testName),
 		DisplayName: "Test User",
-		SupabaseID:  "test-supabase-id",
+		SupabaseID:  fmt.Sprintf("test-supabase-id-%s", testName),
 		Preferences: `{"theme": "light", "gridSize": "medium"}`,
 	}
 
@@ -280,5 +282,226 @@ func TestGetUserStats(t *testing.T) {
 		assert.Equal(t, 3, stats.BookmarkCount)
 		assert.Equal(t, 2, stats.CollectionCount)
 		assert.Equal(t, 0, stats.StorageUsed) // Default value
+	})
+}
+
+// TestUpdatePreferencesService tests the UpdatePreferences service functionality with validation
+// TestUpdatePreferencesService 測試 UpdatePreferences 服務功能及其驗證
+func TestUpdatePreferencesService(t *testing.T) {
+	service, db, _ := setupTestService(t)
+	ctx := context.Background()
+
+	t.Run("Update Preferences Successfully", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Valid preferences update
+		// 有效的偏好設置更新
+		req := &UpdatePreferencesRequest{
+			Theme:       "dark",
+			GridSize:    "large",
+			DefaultView: "list",
+			Language:    "zh-CN",
+			Timezone:    "Asia/Shanghai",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		require.NoError(t, err)
+		assert.NotNil(t, profile)
+
+		// Verify preferences were updated
+		// 驗證偏好設置已更新
+		assert.Equal(t, "dark", profile.Preferences.Theme)
+		assert.Equal(t, "large", profile.Preferences.GridSize)
+		assert.Equal(t, "list", profile.Preferences.DefaultView)
+		assert.Equal(t, "zh-CN", profile.Preferences.Language)
+		assert.Equal(t, "Asia/Shanghai", profile.Preferences.Timezone)
+	})
+
+	t.Run("Update Preferences with Invalid Theme", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Invalid theme value
+		// 無效的主題值
+		req := &UpdatePreferencesRequest{
+			Theme: "invalid_theme",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "invalid theme")
+		assert.Contains(t, err.Error(), "must be one of: light, dark, auto")
+	})
+
+	t.Run("Update Preferences with Invalid Grid Size", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Invalid grid size value
+		// 無效的網格大小值
+		req := &UpdatePreferencesRequest{
+			GridSize: "extra_large",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "invalid gridSize")
+		assert.Contains(t, err.Error(), "must be one of: small, medium, large")
+	})
+
+	t.Run("Update Preferences with Invalid Default View", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Invalid default view value
+		// 無效的默認視圖值
+		req := &UpdatePreferencesRequest{
+			DefaultView: "card_view",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "invalid defaultView")
+		assert.Contains(t, err.Error(), "must be one of: grid, list")
+	})
+
+	t.Run("Update Preferences with Invalid Language", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Invalid language value
+		// 無效的語言值
+		req := &UpdatePreferencesRequest{
+			Language: "fr",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "invalid language")
+		assert.Contains(t, err.Error(), "must be one of: en, zh-CN, zh-TW")
+	})
+
+	t.Run("Update Preferences with Invalid Timezone Format", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Invalid timezone format
+		// 無效的時區格式
+		req := &UpdatePreferencesRequest{
+			Timezone: "Invalid/Timezone",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "invalid timezone")
+	})
+
+	t.Run("Update Preferences with Multiple Invalid Values", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Multiple invalid values
+		// 多個無效值
+		req := &UpdatePreferencesRequest{
+			Theme:       "neon",
+			GridSize:    "tiny",
+			DefaultView: "carousel",
+			Language:    "klingon",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+
+		// Should contain multiple validation errors
+		// 應包含多個驗證錯誤
+		errorMsg := err.Error()
+		assert.Contains(t, errorMsg, "validation failed")
+		assert.Contains(t, errorMsg, "theme")
+		assert.Contains(t, errorMsg, "gridSize")
+		assert.Contains(t, errorMsg, "defaultView")
+		assert.Contains(t, errorMsg, "language")
+	})
+
+	t.Run("Update Preferences for Non-existent User", func(t *testing.T) {
+		// Valid preferences but non-existent user
+		// 有效的偏好設置但用戶不存在
+		req := &UpdatePreferencesRequest{
+			Theme: "dark",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, 999, req)
+		assert.Error(t, err)
+		assert.Nil(t, profile)
+		assert.Contains(t, err.Error(), "user not found")
+	})
+
+	t.Run("Update Preferences with Empty Values Should Not Change Existing", func(t *testing.T) {
+		// Create test user with existing preferences
+		// 創建帶有現有偏好設置的測試用戶
+		user := createTestUser(t, db)
+
+		// Set initial preferences
+		// 設置初始偏好設置
+		initialReq := &UpdatePreferencesRequest{
+			Theme:    "dark",
+			GridSize: "large",
+			Language: "zh-CN",
+		}
+
+		_, err := service.UpdatePreferences(ctx, user.ID, initialReq)
+		require.NoError(t, err)
+
+		// Update with empty values (should not change existing)
+		// 使用空值更新（不應更改現有設置）
+		emptyReq := &UpdatePreferencesRequest{}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, emptyReq)
+		require.NoError(t, err)
+
+		// Verify existing preferences are preserved
+		// 驗證現有偏好設置被保留
+		assert.Equal(t, "dark", profile.Preferences.Theme)
+		assert.Equal(t, "large", profile.Preferences.GridSize)
+		assert.Equal(t, "zh-CN", profile.Preferences.Language)
+	})
+
+	t.Run("Update Preferences with Partial Valid Values", func(t *testing.T) {
+		// Create test user
+		// 創建測試用戶
+		user := createTestUser(t, db)
+
+		// Update only some preferences
+		// 僅更新部分偏好設置
+		req := &UpdatePreferencesRequest{
+			Theme:    "auto",
+			Language: "zh-TW",
+		}
+
+		profile, err := service.UpdatePreferences(ctx, user.ID, req)
+		require.NoError(t, err)
+
+		// Verify updated values
+		// 驗證更新的值
+		assert.Equal(t, "auto", profile.Preferences.Theme)
+		assert.Equal(t, "zh-TW", profile.Preferences.Language)
+
+		// Verify default values for non-updated fields
+		// 驗證未更新字段的默認值
+		assert.Equal(t, "medium", profile.Preferences.GridSize)
+		assert.Equal(t, "grid", profile.Preferences.DefaultView)
 	})
 }

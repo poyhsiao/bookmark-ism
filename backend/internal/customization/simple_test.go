@@ -1,6 +1,7 @@
 package customization
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,7 @@ import (
 
 // Simple unit tests for validation and basic functionality
 func TestServiceCreation(t *testing.T) {
-	service := NewService(nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	assert.NotNil(t, service)
 }
 
@@ -344,6 +345,83 @@ func TestErrorResponses(t *testing.T) {
 				Message: "Unauthorized to access theme",
 			},
 		},
+		{
+			name:    "Already exists error",
+			err:     ErrThemeAlreadyExists,
+			code:    CodeAlreadyExists,
+			message: "Theme with this name already exists",
+			expected: ErrorResponse{
+				Error:   "theme already exists",
+				Code:    "ALREADY_EXISTS",
+				Message: "Theme with this name already exists",
+			},
+		},
+		{
+			name:    "Internal server error",
+			err:     ErrInternalError,
+			code:    CodeInternalError,
+			message: "An internal server error occurred",
+			expected: ErrorResponse{
+				Error:   "internal server error",
+				Code:    "INTERNAL_ERROR",
+				Message: "An internal server error occurred",
+			},
+		},
+		{
+			name:    "Unauthorized error",
+			err:     ErrPermissionDenied,
+			code:    CodeUnauthorized,
+			message: "Authentication required",
+			expected: ErrorResponse{
+				Error:   "permission denied",
+				Code:    "UNAUTHORIZED",
+				Message: "Authentication required",
+			},
+		},
+		{
+			name:    "Invalid request error",
+			err:     ErrInvalidRequest,
+			code:    CodeValidationError,
+			message: "Request validation failed",
+			expected: ErrorResponse{
+				Error:   "invalid request",
+				Code:    "VALIDATION_ERROR",
+				Message: "Request validation failed",
+			},
+		},
+		{
+			name:    "Rating already exists error",
+			err:     ErrAlreadyRated,
+			code:    CodeAlreadyExists,
+			message: "User has already rated this theme",
+			expected: ErrorResponse{
+				Error:   "user has already rated this theme",
+				Code:    "ALREADY_EXISTS",
+				Message: "User has already rated this theme",
+			},
+		},
+		{
+			name:    "Preferences not found error",
+			err:     ErrPreferencesNotFound,
+			code:    CodeNotFound,
+			message: "User preferences not found",
+			expected: ErrorResponse{
+				Error:   "user preferences not found",
+				Code:    "NOT_FOUND",
+				Message: "User preferences not found",
+			},
+		},
+		{
+			name:    "Rating not found error",
+			err:     ErrRatingNotFound,
+			code:    CodeNotFound,
+			message: "Theme rating not found",
+			expected: ErrorResponse{
+				Error:   "rating not found",
+				Code:    "NOT_FOUND",
+				Message: "Theme rating not found",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -354,6 +432,221 @@ func TestErrorResponses(t *testing.T) {
 			assert.Equal(t, tt.expected.Message, response.Message)
 		})
 	}
+}
+
+// Test error mapping and unknown error handling - TDD approach
+func TestErrorMappingAndUnknownErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected struct {
+			code    string
+			message string
+		}
+	}{
+		{
+			name: "Theme validation error maps to validation code",
+			err:  ErrInvalidThemeName,
+			expected: struct {
+				code    string
+				message string
+			}{
+				code:    CodeValidationError,
+				message: "Theme validation failed",
+			},
+		},
+		{
+			name: "Theme not found maps to not found code",
+			err:  ErrThemeNotFound,
+			expected: struct {
+				code    string
+				message string
+			}{
+				code:    CodeNotFound,
+				message: "Requested theme not found",
+			},
+		},
+		{
+			name: "Permission error maps to permission denied code",
+			err:  ErrUnauthorizedTheme,
+			expected: struct {
+				code    string
+				message string
+			}{
+				code:    CodePermissionDenied,
+				message: "Access to theme denied",
+			},
+		},
+		{
+			name: "Internal error maps to internal error code",
+			err:  ErrInternalError,
+			expected: struct {
+				code    string
+				message string
+			}{
+				code:    CodeInternalError,
+				message: "Internal server error occurred",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, message := MapErrorToCodeAndMessage(tt.err)
+			assert.Equal(t, tt.expected.code, code)
+			assert.Equal(t, tt.expected.message, message)
+		})
+	}
+}
+
+// Test unknown error handling - TDD: Write failing test first
+func TestUnknownErrorHandling(t *testing.T) {
+	// Create an unknown error not defined in our error constants
+	unknownErr := errors.New("database connection timeout")
+
+	code, message := MapErrorToCodeAndMessage(unknownErr)
+
+	// Unknown errors should map to internal error
+	assert.Equal(t, CodeInternalError, code)
+	assert.Equal(t, "An unexpected error occurred", message)
+
+	// Test error response creation for unknown errors
+	response := NewErrorResponse(unknownErr, code, message)
+	assert.Equal(t, "database connection timeout", response.Error)
+	assert.Equal(t, CodeInternalError, response.Code)
+	assert.Equal(t, "An unexpected error occurred", response.Message)
+}
+
+// Test automatic error response creation - TDD: Write failing test first
+func TestAutoErrorResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected ErrorResponse
+	}{
+		{
+			name: "Theme validation error auto-mapped",
+			err:  ErrInvalidThemeName,
+			expected: ErrorResponse{
+				Error:   "invalid theme name",
+				Code:    CodeValidationError,
+				Message: "Theme validation failed",
+			},
+		},
+		{
+			name: "Theme not found auto-mapped",
+			err:  ErrThemeNotFound,
+			expected: ErrorResponse{
+				Error:   "theme not found",
+				Code:    CodeNotFound,
+				Message: "Requested theme not found",
+			},
+		},
+		{
+			name: "Permission denied auto-mapped",
+			err:  ErrUnauthorizedTheme,
+			expected: ErrorResponse{
+				Error:   "unauthorized to access theme",
+				Code:    CodePermissionDenied,
+				Message: "Access to theme denied",
+			},
+		},
+		{
+			name: "Unknown error auto-mapped to internal error",
+			err:  errors.New("unexpected database error"),
+			expected: ErrorResponse{
+				Error:   "unexpected database error",
+				Code:    CodeInternalError,
+				Message: "An unexpected error occurred",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := NewAutoErrorResponse(tt.err)
+			assert.Equal(t, tt.expected.Error, response.Error)
+			assert.Equal(t, tt.expected.Code, response.Code)
+			assert.Equal(t, tt.expected.Message, response.Message)
+		})
+	}
+}
+
+// Test error response consistency and edge cases - TDD approach
+func TestErrorResponseConsistencyAndEdgeCases(t *testing.T) {
+	t.Run("Nil error handling", func(t *testing.T) {
+		// This should not panic and should handle gracefully
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("NewAutoErrorResponse panicked with nil error: %v", r)
+			}
+		}()
+
+		// Test with nil error - should be handled gracefully
+		response := NewAutoErrorResponse(nil)
+		assert.Equal(t, CodeInternalError, response.Code)
+		assert.Equal(t, "An unexpected error occurred", response.Message)
+	})
+
+	t.Run("Error response JSON serialization", func(t *testing.T) {
+		response := NewAutoErrorResponse(ErrThemeNotFound)
+
+		// Verify all fields are properly set for JSON serialization
+		assert.NotEmpty(t, response.Error)
+		assert.NotEmpty(t, response.Code)
+		assert.NotEmpty(t, response.Message)
+
+		// Verify specific values
+		assert.Equal(t, "theme not found", response.Error)
+		assert.Equal(t, CodeNotFound, response.Code)
+		assert.Equal(t, "Requested theme not found", response.Message)
+	})
+
+	t.Run("All error codes are covered", func(t *testing.T) {
+		// Test that all defined error codes have corresponding error mappings
+		errorCodeTests := []struct {
+			err  error
+			code string
+		}{
+			{ErrInvalidThemeName, CodeValidationError},
+			{ErrThemeNotFound, CodeNotFound},
+			{ErrThemeAlreadyExists, CodeAlreadyExists},
+			{ErrUnauthorizedTheme, CodePermissionDenied},
+			{ErrInternalError, CodeInternalError},
+		}
+
+		for _, test := range errorCodeTests {
+			code, _ := MapErrorToCodeAndMessage(test.err)
+			assert.Equal(t, test.code, code, "Error %v should map to code %s", test.err, test.code)
+		}
+	})
+
+	t.Run("Error message consistency", func(t *testing.T) {
+		// Test that similar errors get consistent message patterns
+		validationErrors := []error{
+			ErrInvalidThemeName,
+			ErrInvalidDisplayName,
+			ErrInvalidThemeConfig,
+		}
+
+		for _, err := range validationErrors {
+			code, message := MapErrorToCodeAndMessage(err)
+			assert.Equal(t, CodeValidationError, code)
+			assert.Contains(t, message, "validation failed", "Validation errors should have consistent message pattern")
+		}
+
+		notFoundErrors := []error{
+			ErrThemeNotFound,
+			ErrPreferencesNotFound,
+			ErrRatingNotFound,
+		}
+
+		for _, err := range notFoundErrors {
+			code, message := MapErrorToCodeAndMessage(err)
+			assert.Equal(t, CodeNotFound, code)
+			assert.Contains(t, message, "not found", "Not found errors should have consistent message pattern")
+		}
+	})
 }
 
 func TestRequestValidation(t *testing.T) {
@@ -461,6 +754,43 @@ func TestGridSizeOptions(t *testing.T) {
 	}
 }
 
+// Test invalid grid size options - TDD: Write failing test first
+func TestInvalidGridSizeOptions(t *testing.T) {
+	invalidSizes := []string{
+		"tiny",         // Not in valid list
+		"extra-large",  // Not in valid list
+		"xl",           // Not in valid list
+		"SMALL",        // Case sensitive - should be lowercase
+		"Medium",       // Case sensitive - should be lowercase
+		"LARGE",        // Case sensitive - should be lowercase
+		"",             // Empty string (if GridSize is required)
+		"invalid",      // Generic invalid value
+		"mini",         // Another invalid size
+		"huge",         // Another invalid size
+		"1",            // Numeric value
+		"small-medium", // Hyphenated invalid value
+	}
+
+	for _, size := range invalidSizes {
+		t.Run("InvalidGridSize_"+size, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     size,
+				ViewMode:     "grid",
+				SortBy:       "created_at",
+				SortOrder:    "desc",
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.Error(t, err, "Grid size '%s' should be invalid", size)
+			assert.Equal(t, ErrInvalidGridSize, err, "Should return ErrInvalidGridSize for '%s'", size)
+		})
+	}
+}
+
 func TestViewModeOptions(t *testing.T) {
 	validModes := []string{"grid", "list", "compact"}
 
@@ -479,6 +809,167 @@ func TestViewModeOptions(t *testing.T) {
 
 			err := prefs.Validate()
 			assert.NoError(t, err, "View mode %s should be valid", mode)
+		})
+	}
+}
+
+// Test invalid view mode options - TDD: Write failing test first
+func TestInvalidViewModeOptions(t *testing.T) {
+	invalidModes := []string{
+		"table",     // Not in valid list
+		"card",      // Not in valid list
+		"tile",      // Not in valid list
+		"GRID",      // Case sensitive - should be lowercase
+		"List",      // Case sensitive - should be lowercase
+		"COMPACT",   // Case sensitive - should be lowercase
+		"",          // Empty string
+		"invalid",   // Generic invalid value
+		"gallery",   // Another invalid mode
+		"thumbnail", // Another invalid mode
+		"1",         // Numeric value
+		"grid-view", // Hyphenated invalid value
+		"list_view", // Underscore invalid value
+	}
+
+	for _, mode := range invalidModes {
+		t.Run("InvalidViewMode_"+mode, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     "medium",
+				ViewMode:     mode,
+				SortBy:       "created_at",
+				SortOrder:    "desc",
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.Error(t, err, "View mode '%s' should be invalid", mode)
+			assert.Equal(t, ErrInvalidViewMode, err, "Should return ErrInvalidViewMode for '%s'", mode)
+		})
+	}
+}
+
+// Test invalid sort by options - TDD: Write failing test first
+func TestInvalidSortByOptions(t *testing.T) {
+	invalidSortBy := []string{
+		"name",       // Not in valid list
+		"date",       // Not in valid list
+		"modified",   // Not in valid list
+		"CREATED_AT", // Case sensitive - should be lowercase
+		"Updated_At", // Case sensitive - should be lowercase
+		"TITLE",      // Case sensitive - should be lowercase
+		"",           // Empty string
+		"invalid",    // Generic invalid value
+		"popularity", // Another invalid sort option
+		"rating",     // Another invalid sort option
+		"1",          // Numeric value
+		"created-at", // Hyphenated invalid value
+		"updated.at", // Dot notation invalid value
+	}
+
+	for _, sortBy := range invalidSortBy {
+		t.Run("InvalidSortBy_"+sortBy, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     "medium",
+				ViewMode:     "grid",
+				SortBy:       sortBy,
+				SortOrder:    "desc",
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.Error(t, err, "Sort by '%s' should be invalid", sortBy)
+			assert.Equal(t, ErrInvalidSortBy, err, "Should return ErrInvalidSortBy for '%s'", sortBy)
+		})
+	}
+}
+
+// Test invalid sort order options - TDD: Write failing test first
+func TestInvalidSortOrderOptions(t *testing.T) {
+	invalidSortOrder := []string{
+		"ascending",  // Not in valid list
+		"descending", // Not in valid list
+		"up",         // Not in valid list
+		"down",       // Not in valid list
+		"ASC",        // Case sensitive - should be lowercase
+		"DESC",       // Case sensitive - should be lowercase
+		"Asc",        // Case sensitive - should be lowercase
+		"Desc",       // Case sensitive - should be lowercase
+		"",           // Empty string
+		"invalid",    // Generic invalid value
+		"1",          // Numeric value
+		"0",          // Numeric value
+		"true",       // Boolean as string
+		"false",      // Boolean as string
+	}
+
+	for _, sortOrder := range invalidSortOrder {
+		t.Run("InvalidSortOrder_"+sortOrder, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     "medium",
+				ViewMode:     "grid",
+				SortBy:       "created_at",
+				SortOrder:    sortOrder,
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.Error(t, err, "Sort order '%s' should be invalid", sortOrder)
+			assert.Equal(t, ErrInvalidSortOrder, err, "Should return ErrInvalidSortOrder for '%s'", sortOrder)
+		})
+	}
+}
+
+// Test valid sort by options - TDD: Ensure positive cases still work
+func TestValidSortByOptions(t *testing.T) {
+	validSortBy := []string{"created_at", "updated_at", "title", "url"}
+
+	for _, sortBy := range validSortBy {
+		t.Run("ValidSortBy_"+sortBy, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     "medium",
+				ViewMode:     "grid",
+				SortBy:       sortBy,
+				SortOrder:    "desc",
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.NoError(t, err, "Sort by '%s' should be valid", sortBy)
+		})
+	}
+}
+
+// Test valid sort order options - TDD: Ensure positive cases still work
+func TestValidSortOrderOptions(t *testing.T) {
+	validSortOrder := []string{"asc", "desc"}
+
+	for _, sortOrder := range validSortOrder {
+		t.Run("ValidSortOrder_"+sortOrder, func(t *testing.T) {
+			prefs := UserPreferences{
+				UserID:       "user-123",
+				Language:     "en",
+				GridSize:     "medium",
+				ViewMode:     "grid",
+				SortBy:       "created_at",
+				SortOrder:    sortOrder,
+				SyncInterval: 300,
+				SidebarWidth: 250,
+			}
+
+			err := prefs.Validate()
+			assert.NoError(t, err, "Sort order '%s' should be valid", sortOrder)
 		})
 	}
 }

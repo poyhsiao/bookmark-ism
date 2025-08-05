@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"bookmark-sync-service/backend/internal/config"
 	"bookmark-sync-service/backend/pkg/database"
 	"bookmark-sync-service/backend/pkg/utils"
+	"bookmark-sync-service/backend/pkg/validation"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,41 +38,37 @@ type OfflineServiceInterface interface {
 
 // Handler handles offline-related HTTP requests
 type Handler struct {
-	service OfflineServiceInterface
+	service   OfflineServiceInterface
+	validator *validation.RequestValidator
 }
 
 // NewHandler creates a new offline handler
 func NewHandler(service OfflineServiceInterface) *Handler {
 	return &Handler{
-		service: service,
+		service:   service,
+		validator: validation.NewRequestValidator(),
 	}
 }
 
 // CacheBookmark caches a bookmark for offline access
 func (h *Handler) CacheBookmark(c *gin.Context) {
-	userIDStr := c.GetHeader("X-User-ID")
-	if userIDStr == "" {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "User ID required", nil)
-		return
-	}
-
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	userID, err := h.validator.UserIDFromHeader(c)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_USER_ID", "Invalid user ID", nil)
+		utils.ErrorResponse(c, config.StatusUnauthorized, "UNAUTHORIZED", config.ErrUserNotAuthenticated, nil)
 		return
 	}
 
 	var bookmark database.Bookmark
-	if err := c.ShouldBindJSON(&bookmark); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_DATA", "Invalid bookmark data", map[string]interface{}{"error": err.Error()})
+	if err := h.validator.BindAndValidateJSON(c, &bookmark); err != nil {
+		utils.ErrorResponse(c, config.StatusBadRequest, "INVALID_DATA", config.ErrInvalidData, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
 	// Ensure the bookmark belongs to the authenticated user
-	bookmark.UserID = uint(userID)
+	bookmark.UserID = userID
 
 	if err := h.service.CacheBookmark(c.Request.Context(), &bookmark); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "CACHE_ERROR", "Failed to cache bookmark", map[string]interface{}{"error": err.Error()})
+		utils.ErrorResponse(c, config.StatusInternalError, "CACHE_ERROR", config.ErrCacheError, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
@@ -79,22 +77,15 @@ func (h *Handler) CacheBookmark(c *gin.Context) {
 
 // GetCachedBookmark retrieves a cached bookmark
 func (h *Handler) GetCachedBookmark(c *gin.Context) {
-	userIDStr := c.GetHeader("X-User-ID")
-	if userIDStr == "" {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "User ID required", nil)
+	userID, err := h.validator.UserIDFromHeader(c)
+	if err != nil {
+		utils.ErrorResponse(c, config.StatusUnauthorized, "UNAUTHORIZED", config.ErrUserNotAuthenticated, nil)
 		return
 	}
 
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	bookmarkID, err := h.validator.IDFromParam(c, "id")
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_USER_ID", "Invalid user ID", nil)
-		return
-	}
-
-	bookmarkIDStr := c.Param("id")
-	bookmarkID, err := strconv.ParseUint(bookmarkIDStr, 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_BOOKMARK_ID", "Invalid bookmark ID", nil)
+		utils.ErrorResponse(c, config.StatusBadRequest, "INVALID_BOOKMARK_ID", config.ErrInvalidBookmarkID, nil)
 		return
 	}
 

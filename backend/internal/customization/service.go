@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"bookmark-sync-service/backend/pkg/worker"
+
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -33,15 +36,19 @@ type RedisClient interface {
 
 // Service handles customization features
 type Service struct {
-	db    Database
-	redis RedisClient
+	db         Database
+	redis      RedisClient
+	workerPool *worker.WorkerPool
+	logger     *zap.Logger
 }
 
 // NewService creates a new customization service
-func NewService(db Database, redis RedisClient) *Service {
+func NewService(db Database, redis RedisClient, workerPool *worker.WorkerPool, logger *zap.Logger) *Service {
 	return &Service{
-		db:    db,
-		redis: redis,
+		db:         db,
+		redis:      redis,
+		workerPool: workerPool,
+		logger:     logger,
 	}
 }
 
@@ -592,28 +599,41 @@ func (s *Service) userThemeToResponse(userTheme *UserTheme) *UserThemeResponse {
 }
 
 func (s *Service) updateThemeRatingStats(themeID uint) {
-	// This would typically be done in a background job
-	// For now, we'll do it synchronously
-	go func() {
-		var ratings []ThemeRating
-		s.db.Find(&ratings, "theme_id = ?", themeID)
-
-		if len(ratings) == 0 {
-			return
+	// Submit theme rating update job to worker queue
+	if s.workerPool != nil {
+		job := worker.NewThemeRatingUpdateJob(themeID, s, s.logger)
+		if err := s.workerPool.Submit(job); err != nil {
+			s.logger.Warn("Failed to submit theme rating update job", zap.Error(err))
 		}
+	}
+}
 
-		var totalRating int
-		for _, rating := range ratings {
-			totalRating += rating.Rating
+// UpdateThemeRating updates theme rating statistics (called by worker)
+func (s *Service) UpdateThemeRating(ctx context.Context, themeID uint) error {
+	var ratings []ThemeRating
+	if err := s.db.Find(&ratings, "theme_id = ?", themeID).Error; err != nil {
+		return fmt.Errorf("failed to fetch theme ratings: %w", err)
+	}
+
+	if len(ratings) == 0 {
+		return nil
+	}
+
+	var totalRating int
+	for _, rating := range ratings {
+		totalRating += rating.Rating
+	}
+
+	avgRating := float64(totalRating) / float64(len(ratings))
+
+	var theme Theme
+	if err := s.db.First(&theme, themeID).Error; err == nil {
+		theme.Rating = avgRating
+		theme.RatingCount = len(ratings)
+		if err := s.db.Save(&theme).Error; err != nil {
+			return fmt.Errorf("failed to update theme rating: %w", err)
 		}
+	}
 
-		avgRating := float64(totalRating) / float64(len(ratings))
-
-		var theme Theme
-		if err := s.db.First(&theme, themeID).Error; err == nil {
-			theme.Rating = avgRating
-			theme.RatingCount = len(ratings)
-			s.db.Save(&theme)
-		}
-	}()
+	return nil
 }

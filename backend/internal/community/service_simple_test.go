@@ -8,7 +8,7 @@ import (
 
 // Simple unit tests for validation and basic functionality
 func TestServiceCreation(t *testing.T) {
-	service := NewService(nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	assert.NotNil(t, service)
 }
 
@@ -314,7 +314,7 @@ func TestErrorResponses(t *testing.T) {
 
 func TestServiceMethodsExist(t *testing.T) {
 	// This test ensures all required service methods exist by checking the interface
-	service := NewService(nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	assert.NotNil(t, service)
 
 	// Test that the service implements the CommunityService interface

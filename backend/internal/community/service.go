@@ -8,6 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	"bookmark-sync-service/backend/pkg/worker"
+
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -35,15 +38,19 @@ type RedisClient interface {
 
 // Service handles community features
 type Service struct {
-	db    Database
-	redis RedisClient
+	db         Database
+	redis      RedisClient
+	workerPool *worker.WorkerPool
+	logger     *zap.Logger
 }
 
 // NewService creates a new community service
-func NewService(db Database, redis RedisClient) *Service {
+func NewService(db Database, redis RedisClient, workerPool *worker.WorkerPool, logger *zap.Logger) *Service {
 	return &Service{
-		db:    db,
-		redis: redis,
+		db:         db,
+		redis:      redis,
+		workerPool: workerPool,
+		logger:     logger,
 	}
 }
 
@@ -87,16 +94,22 @@ func (s *Service) TrackUserBehavior(ctx context.Context, req *BehaviorTrackingRe
 		return fmt.Errorf("failed to track user behavior: %w", err)
 	}
 
-	// Update social metrics asynchronously
-	go func() {
-		s.UpdateSocialMetrics(context.Background(), req.BookmarkID, req.ActionType)
-	}()
+	// Update social metrics asynchronously using worker queue
+	if s.workerPool != nil {
+		socialJob := worker.NewSocialMetricsUpdateJob(req.BookmarkID, req.ActionType, s, s.logger)
+		if err := s.workerPool.Submit(socialJob); err != nil {
+			s.logger.Warn("Failed to submit social metrics update job", zap.Error(err))
+		}
+	}
 
 	// Update trending scores if significant action
 	if req.ActionType == "view" || req.ActionType == "click" || req.ActionType == "save" {
-		go func() {
-			s.updateTrendingCache(context.Background(), req.BookmarkID, req.ActionType)
-		}()
+		if s.workerPool != nil {
+			trendingJob := worker.NewTrendingCacheUpdateJob(req.BookmarkID, req.ActionType, s, s.logger)
+			if err := s.workerPool.Submit(trendingJob); err != nil {
+				s.logger.Warn("Failed to submit trending cache update job", zap.Error(err))
+			}
+		}
 	}
 
 	return nil
@@ -566,6 +579,11 @@ func (s *Service) GenerateRecommendations(ctx context.Context, userID, algorithm
 		return fmt.Errorf("failed to get user behaviors: %w", err)
 	}
 
+	// Check for insufficient data
+	if len(behaviors) == 0 {
+		return ErrInsufficientData
+	}
+
 	// Generate recommendations based on algorithm
 	var recommendations []BookmarkRecommendation
 	switch algorithm {
@@ -750,4 +768,10 @@ func (s *Service) updateTrendingCache(ctx context.Context, bookmarkID uint, acti
 func (s *Service) clearUserStatsCache(ctx context.Context, userID string) {
 	cacheKey := fmt.Sprintf("user_stats:%s", userID)
 	s.redis.Del(ctx, cacheKey)
+}
+
+// UpdateTrendingCache updates the trending cache for a bookmark
+func (s *Service) UpdateTrendingCache(ctx context.Context, bookmarkID uint, actionType string) error {
+	s.updateTrendingCache(ctx, bookmarkID, actionType)
+	return nil
 }

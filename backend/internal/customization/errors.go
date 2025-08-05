@@ -60,9 +60,76 @@ type ErrorResponse struct {
 
 // NewErrorResponse creates a new error response
 func NewErrorResponse(err error, code, message string) ErrorResponse {
+	errorText := "unknown error"
+	if err != nil {
+		errorText = err.Error()
+	}
+
 	return ErrorResponse{
-		Error:   err.Error(),
+		Error:   errorText,
 		Code:    code,
 		Message: message,
 	}
+}
+
+// MapErrorToCodeAndMessage maps errors to appropriate codes and messages
+func MapErrorToCodeAndMessage(err error) (string, string) {
+	// Handle nil error
+	if err == nil {
+		return CodeInternalError, "An unexpected error occurred"
+	}
+
+	switch err {
+	// Theme validation errors
+	case ErrInvalidThemeName, ErrInvalidDisplayName, ErrInvalidDescription, ErrInvalidThemeConfig:
+		return CodeValidationError, "Theme validation failed"
+
+	// User preferences validation errors
+	case ErrInvalidUserID, ErrInvalidLanguage, ErrInvalidTimezone, ErrInvalidDateFormat,
+		ErrInvalidTimeFormat, ErrInvalidGridSize, ErrInvalidViewMode, ErrInvalidSortBy,
+		ErrInvalidSortOrder, ErrInvalidSyncInterval, ErrInvalidSidebarWidth:
+		return CodeValidationError, "User preferences validation failed"
+
+	// Theme rating validation errors
+	case ErrInvalidThemeID, ErrInvalidRating, ErrInvalidComment:
+		return CodeValidationError, "Rating validation failed"
+
+	// General validation errors
+	case ErrInvalidRequest:
+		return CodeValidationError, "Request validation failed"
+
+	// Not found errors
+	case ErrThemeNotFound:
+		return CodeNotFound, "Requested theme not found"
+	case ErrPreferencesNotFound:
+		return CodeNotFound, "User preferences not found"
+	case ErrRatingNotFound:
+		return CodeNotFound, "Theme rating not found"
+
+	// Already exists errors
+	case ErrThemeAlreadyExists:
+		return CodeAlreadyExists, "Theme already exists"
+	case ErrAlreadyRated:
+		return CodeAlreadyExists, "User has already rated this theme"
+
+	// Permission errors
+	case ErrUnauthorizedTheme, ErrPermissionDenied:
+		return CodePermissionDenied, "Access to theme denied"
+	case ErrThemeNotPublic:
+		return CodePermissionDenied, "Theme is not publicly accessible"
+
+	// Internal errors
+	case ErrInternalError:
+		return CodeInternalError, "Internal server error occurred"
+
+	// Unknown errors - default to internal error
+	default:
+		return CodeInternalError, "An unexpected error occurred"
+	}
+}
+
+// NewAutoErrorResponse creates an error response with automatic code and message mapping
+func NewAutoErrorResponse(err error) ErrorResponse {
+	code, message := MapErrorToCodeAndMessage(err)
+	return NewErrorResponse(err, code, message)
 }

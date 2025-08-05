@@ -3,7 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"bookmark-sync-service/backend/internal/config"
 
@@ -22,7 +21,7 @@ func NewClient(cfg config.SearchConfig) (*Client, error) {
 	client := typesense.NewClient(
 		typesense.WithServer(fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port)),
 		typesense.WithAPIKey(cfg.APIKey),
-		typesense.WithConnectionTimeout(5*time.Second),
+		typesense.WithConnectionTimeout(config.TypesenseTimeout),
 	)
 
 	return &Client{

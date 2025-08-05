@@ -249,7 +249,7 @@ func (c *Client) OptimizeAndStoreImage(ctx context.Context, objectName string, i
 	if opts.Thumbnail {
 		thumbnailSize := opts.ThumbnailSize
 		if thumbnailSize == 0 {
-			thumbnailSize = 200 // Default thumbnail size
+			thumbnailSize = config.DefaultThumbnailSize
 		}
 
 		thumbnail := imaging.Fit(img, thumbnailSize, thumbnailSize, imaging.Lanczos)
