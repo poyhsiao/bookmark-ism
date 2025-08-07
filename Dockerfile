@@ -1,5 +1,5 @@
 # Development Dockerfile
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -7,17 +7,22 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies and verify module
+RUN go mod download && go mod verify
 
-# Copy source code
+# Copy the entire source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./backend/cmd/api
+# Verify the module structure and dependencies
+RUN ls -la backend/pkg/storage/ && \
+    go mod tidy && \
+    go list -m all
+
+# Build the application with verbose output for debugging
+RUN CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix cgo -o main ./backend/cmd/api
 
 # Final stage
 FROM alpine:latest
