@@ -1,0 +1,72 @@
+{
+  "manifest_version": 2,
+  "name": "Bookmark Sync Service",
+  "version": "0.8.0",
+  "description": "Cross-browser bookmark synchronization with real-time sync",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "bookmarks",
+    "contextMenus",
+    "notifications",
+    "http://localhost:8080/*",
+    "https://api.bookmarksync.com/*"
+  ],
+
+  "background": {
+    "scripts": [
+      "../shared/constants.js",
+      "../shared/utils.js",
+      "../shared/api-client.js",
+      "background/auth-manager.js",
+      "background/sync-manager.js",
+      "background/storage-manager.js",
+      "background/safari-importer.js",
+      "background/error-handler.js",
+      "background/background.js"
+    ],
+    "persistent": false
+  },
+
+  "browser_action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Bookmark Sync",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/page-analyzer.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    "popup/*",
+    "options/*"
+  ],
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "safari_web_extension": {
+    "bundle_identifier": "com.bookmarksync.safari-extension",
+    "team_identifier": "XXXXXXXXXX"
+  }
+}

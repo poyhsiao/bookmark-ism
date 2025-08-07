@@ -1,0 +1,259 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # Update Go Dependencies
+  update-go-deps:
+    name: Update Go Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Update Go dependencies
+      run: |
+        cd backend
+
+        # Update all dependencies
+        go get -u ./...
+        go mod tidy
+
+        # Check for vulnerabilities
+        go list -json -deps ./... | nancy sleuth
+
+    - name: Run tests
+      run: |
+        cd backend
+        go test ./...
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update Go dependencies'
+        title: 'chore: update Go dependencies'
+        body: |
+          ## Go Dependencies Update
+
+          This PR updates Go dependencies to their latest versions.
+
+          ### Changes
+          - Updated all Go modules to latest versions
+          - Ran `go mod tidy` to clean up dependencies
+          - Verified no security vulnerabilities
+
+          ### Testing
+          - ✅ All tests pass
+          - ✅ No security vulnerabilities found
+
+          This is an automated PR created by the dependency update workflow.
+        branch: chore/update-go-deps
+        delete-branch: true
+
+  # Update Node.js Dependencies
+  update-node-deps:
+    name: Update Node.js Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Update extension dependencies
+      run: |
+        cd extensions
+
+        # Update dependencies
+        npm update
+
+        # Audit for vulnerabilities
+        npm audit --audit-level=moderate
+
+    - name: Run tests
+      run: |
+        cd extensions
+        npm test
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update Node.js dependencies'
+        title: 'chore: update Node.js dependencies'
+        body: |
+          ## Node.js Dependencies Update
+
+          This PR updates Node.js dependencies for browser extensions.
+
+          ### Changes
+          - Updated all npm packages to latest versions
+          - Ran security audit
+          - Verified no high/critical vulnerabilities
+
+          ### Testing
+          - ✅ All extension tests pass
+          - ✅ No security vulnerabilities found
+
+          This is an automated PR created by the dependency update workflow.
+        branch: chore/update-node-deps
+        delete-branch: true
+
+  # Update Docker Base Images
+  update-docker-images:
+    name: Update Docker Base Images
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update Dockerfile base images
+      run: |
+        # Update Go base image
+        LATEST_GO=$(curl -s https://api.github.com/repos/golang/go/releases/latest | jq -r '.tag_name' | sed 's/go//')
+        sed -i "s/FROM golang:[0-9.]*/FROM golang:$LATEST_GO/" backend/Dockerfile
+
+        # Update Alpine base image
+        LATEST_ALPINE=$(curl -s https://registry.hub.docker.com/v2/repositories/library/alpine/tags/ | jq -r '.results[0].name')
+        sed -i "s/FROM alpine:[0-9.]*/FROM alpine:$LATEST_ALPINE/" backend/Dockerfile
+
+    - name: Update docker-compose images
+      run: |
+        # Update PostgreSQL
+        LATEST_POSTGRES=$(curl -s https://registry.hub.docker.com/v2/repositories/library/postgres/tags/ | jq -r '.results[] | select(.name | test("^[0-9]+$")) | .name' | head -1)
+        sed -i "s/postgres:[0-9]*/postgres:$LATEST_POSTGRES/" docker-compose.yml
+
+        # Update Redis
+        LATEST_REDIS=$(curl -s https://registry.hub.docker.com/v2/repositories/library/redis/tags/ | jq -r '.results[] | select(.name | test("^[0-9]+-alpine$")) | .name' | head -1)
+        sed -i "s/redis:[0-9]*-alpine/redis:$LATEST_REDIS/" docker-compose.yml
+
+    - name: Test Docker build
+      run: |
+        docker build -t test-build backend/
+        docker-compose config
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update Docker base images'
+        title: 'chore: update Docker base images'
+        body: |
+          ## Docker Base Images Update
+
+          This PR updates Docker base images to their latest versions.
+
+          ### Changes
+          - Updated Go base image to latest version
+          - Updated Alpine Linux base image
+          - Updated PostgreSQL image
+          - Updated Redis image
+
+          ### Testing
+          - ✅ Docker build successful
+          - ✅ Docker Compose configuration valid
+
+          This is an automated PR created by the dependency update workflow.
+        branch: chore/update-docker-images
+        delete-branch: true
+
+  # Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Check for high/critical vulnerabilities
+      run: |
+        # Check if there are any high or critical vulnerabilities
+        HIGH_CRITICAL=$(trivy fs --severity HIGH,CRITICAL --format json . | jq '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL") | length' | wc -l)
+
+        if [ "$HIGH_CRITICAL" -gt 0 ]; then
+          echo "⚠️ Found $HIGH_CRITICAL high/critical vulnerabilities"
+          echo "Please review and update dependencies"
+
+          # Create issue for security vulnerabilities
+          gh issue create \
+            --title "🚨 Security Vulnerabilities Detected" \
+            --body "Trivy scan found $HIGH_CRITICAL high/critical vulnerabilities. Please review the security tab for details." \
+            --label "security,priority:high"
+        else
+          echo "✅ No high/critical vulnerabilities found"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Notify Results
+  notify-results:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [update-go-deps, update-node-deps, update-docker-images, security-scan]
+    if: always()
+
+    steps:
+    - name: Summary
+      run: |
+        echo "## Dependency Update Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ needs.update-go-deps.result }}" == "success" ]; then
+          echo "✅ Go dependencies updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Go dependencies update failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.update-node-deps.result }}" == "success" ]; then
+          echo "✅ Node.js dependencies updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Node.js dependencies update failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.update-docker-images.result }}" == "success" ]; then
+          echo "✅ Docker images updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Docker images update failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.security-scan.result }}" == "success" ]; then
+          echo "✅ Security scan completed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Security scan failed" >> $GITHUB_STEP_SUMMARY
+        fi

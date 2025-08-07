@@ -1,0 +1,237 @@
+.git
+.git/
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Go module cache
+go.sum.backup
+
+# Build artifacts
+/bin/
+/dist/
+/build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Configuration files with secrets
+config/local.yaml
+config/production.yaml
+config/secrets.yaml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+/var/log/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Node.js (for web frontend and extensions)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Frontend build artifacts
+web/dist/
+web/build/
+extensions/*/dist/
+extensions/*/build/
+extensions/*/web-ext-artifacts/
+
+# Extension packaging
+*.zip
+*.crx
+*.xpi
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Redis dump files
+dump.rdb
+
+# Docker volume data directories (if mounted locally)
+minio-data/
+.minio/
+redis-data/
+typesense-data/
+postgres-data/
+
+# Supabase
+supabase/.branches
+supabase/.temp
+supabase/logs/
+
+# Redis configuration overrides
+redis/redis.conf.local
+
+# MinIO policies (if generated locally)
+minio/policies/local/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.csr
+
+# Backup files
+*.backup
+*.bak
+*.sql.gz
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Profiling files
+*.prof
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local development overrides
+docker-compose.local.yml
+local.env
+
+# Go build artifacts and binaries
+/api
+/main
+backend/api
+backend/main
+backend/coverage.out
+backend/coverage.html
+backend/*.test
+backend/*.prof
+
+# Extension build artifacts
+extensions/*/dist/
+extensions/*/build/
+extensions/*/web-ext-artifacts/
+extensions/*.zip
+extensions/*.crx
+extensions/*.xpi
+
+# Web frontend build artifacts
+web/dist/
+web/build/
+web/node_modules/
+web/.next/
+web/.nuxt/
+
+# Test and development files
+*_test.go.bak
+*.test.bak
+test-*
+debug-*
+
+# Local configuration overrides
+config/local/
+config/dev/
+config/*.local.*
+
+# Runtime data directories
+data/
+storage/
+uploads/
+screenshots/
+avatars/
+backups/
+
+# Docker development files
+docker-compose.override.yml
+docker-compose.dev.yml
+.docker-compose.override.yml
+
+# Kubernetes local configs
+k8s/local/
+k8s/*.local.yaml
+k8s/secrets/
+
+# Supabase local development
+supabase/.branches/
+supabase/.temp/
+supabase/logs/
+supabase/docker/
+
+# Extension development
+extensions/*/node_modules/
+extensions/*/package-lock.json
+extensions/web-ext-artifacts/
+
+# Performance and debugging
+*.pprof
+*.trace
+*.heap
+*.cpu
+
+# Local scripts and utilities
+scripts/local/
+scripts/*.local.sh
+scripts/debug-*
+
+# Documentation build artifacts
+docs/build/
+docs/dist/
+docs/.vuepress/dist/
+
+# Temporary fix files (from development)
+*_FIX.md.bak
+*_TEMP.md
+TEMP_*
+DEBUG_*
+
+
+# ignore all ai helper files
+/.roo/
+# Kiro specific (keep specs and steering, ignore temp files)
+.kiro/temp/
+.kiro/cache/
+.kiro/.temp/

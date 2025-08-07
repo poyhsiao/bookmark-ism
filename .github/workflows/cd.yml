@@ -1,0 +1,390 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build and Push Docker Images
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push backend image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Generate SBOM
+      id: sbom
+      run: |
+        # Extract the first tag for SBOM generation (avoid multi-platform issues)
+        IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+        echo "Generating SBOM for image: $IMAGE_TAG"
+
+        # Install syft if not available
+        if ! command -v syft &> /dev/null; then
+          echo "Installing syft..."
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        fi
+
+        # Generate SBOM with error handling
+        if syft "$IMAGE_TAG" -o spdx-json=sbom.spdx.json; then
+          echo "SBOM generated successfully"
+          echo "sbom_generated=true" >> $GITHUB_OUTPUT
+        else
+          echo "SBOM generation failed, creating empty file"
+          echo '{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"sbom-generation-failed","documentNamespace":"https://github.com/'"${{ github.repository }}"'","creationInfo":{"created":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","creators":["Tool: github-actions"]}}' > sbom.spdx.json
+          echo "sbom_generated=false" >> $GITHUB_OUTPUT
+        fi
+      continue-on-error: true
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+      if: always()
+
+  # Deploy to Staging (Optional - requires AWS configuration)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_AWS_DEPLOYMENT == 'true'
+    environment:
+      name: staging
+      url: https://staging.bookmark-sync.example.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+    - name: Deploy to staging
+      run: |
+        # Update image tag in deployment
+        sed -i "s|IMAGE_TAG|${{ needs.build-and-push.outputs.image-tag }}|g" k8s/staging/deployment.yaml
+
+        # Apply Kubernetes manifests
+        kubectl apply -f k8s/staging/
+
+        # Wait for rollout
+        kubectl rollout status deployment/bookmark-sync-backend -n staging --timeout=300s
+
+    - name: Run smoke tests
+      run: |
+        # Wait for service to be ready
+        sleep 30
+
+        # Run basic health checks
+        STAGING_URL="https://staging.bookmark-sync.example.com"
+
+        # Health check
+        curl -f "$STAGING_URL/health" || exit 1
+
+        # API version check
+        curl -f "$STAGING_URL/api/v1/health" || exit 1
+
+        echo "✅ Staging deployment successful!"
+
+  # Skip deployment notification (for development without AWS)
+  skip-deployment:
+    name: Skip AWS Deployment
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: vars.ENABLE_AWS_DEPLOYMENT != 'true'
+
+    steps:
+    - name: Skip deployment notification
+      run: |
+        echo "🚀 Docker image built and pushed successfully!"
+        echo "📦 Image: ${{ needs.build-and-push.outputs.image-tag }}"
+        echo "ℹ️ AWS deployment is disabled. To enable:"
+        echo "   1. Set repository variable ENABLE_AWS_DEPLOYMENT=true"
+        echo "   2. Configure AWS secrets (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION)"
+        echo "   3. Set EKS_CLUSTER_NAME secret"
+        echo ""
+        echo "✅ CI/CD pipeline completed successfully without deployment"
+
+  # Deploy to Production (Optional - requires AWS configuration)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging]
+    if: startsWith(github.ref, 'refs/tags/v') && vars.ENABLE_AWS_DEPLOYMENT == 'true'
+    environment:
+      name: production
+      url: https://bookmark-sync.example.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+    - name: Deploy to production
+      run: |
+        # Update image tag in deployment
+        sed -i "s|IMAGE_TAG|${{ needs.build-and-push.outputs.image-tag }}|g" k8s/production/deployment.yaml
+
+        # Apply Kubernetes manifests
+        kubectl apply -f k8s/production/
+
+        # Wait for rollout
+        kubectl rollout status deployment/bookmark-sync-backend -n production --timeout=600s
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for service to be ready
+        sleep 60
+
+        # Run comprehensive health checks
+        PROD_URL="https://bookmark-sync.example.com"
+
+        # Health check
+        curl -f "$PROD_URL/health" || exit 1
+
+        # API version check
+        curl -f "$PROD_URL/api/v1/health" || exit 1
+
+        # Database connectivity check
+        curl -f "$PROD_URL/api/v1/health/db" || exit 1
+
+        # Redis connectivity check
+        curl -f "$PROD_URL/api/v1/health/redis" || exit 1
+
+        echo "✅ Production deployment successful!"
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes in this Release
+
+          ### Features
+          - Comprehensive offline support system
+          - Advanced search with Chinese language support
+          - Multi-browser import/export functionality
+          - Real-time synchronization across devices
+
+          ### Technical Improvements
+          - Enhanced error handling and recovery
+          - Improved test coverage and reliability
+          - Performance optimizations
+          - Security enhancements
+
+          ### Docker Images
+          - Backend: `${{ needs.build-and-push.outputs.image-tag }}`
+          - Digest: `${{ needs.build-and-push.outputs.image-digest }}`
+
+          For detailed changes, see [CHANGELOG.md](CHANGELOG.md)
+        draft: false
+        prerelease: false
+
+  # Rollback (Only if AWS deployment is enabled)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && vars.ENABLE_AWS_DEPLOYMENT == 'true' && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
+    needs: [deploy-staging, deploy-production]
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+    - name: Rollback deployment
+      run: |
+        NAMESPACE="${{ github.event.inputs.environment || 'staging' }}"
+        kubectl rollout undo deployment/bookmark-sync-backend -n $NAMESPACE
+        kubectl rollout status deployment/bookmark-sync-backend -n $NAMESPACE --timeout=300s
+        echo "🔄 Rollback completed for $NAMESPACE environment"
+
+  # Cleanup
+  cleanup:
+    name: Cleanup Old Images
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: success()
+    permissions:
+      packages: write
+
+    steps:
+    - name: Delete old container images
+      uses: actions/delete-package-versions@v5
+      with:
+        package-name: ${{ github.event.repository.name }}
+        package-type: 'container'
+        min-versions-to-keep: 10
+        delete-only-untagged-versions: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Log cleanup status
+      run: |
+        echo "🧹 Container image cleanup completed"
+        echo "Kept the latest 10 versions and removed untagged versions"
+
+  # Notification
+  notify-deployment:
+    name: Notify Pipeline Status
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging, deploy-production, skip-deployment]
+    if: always()
+
+    steps:
+    - name: Notify success
+      if: ${{ needs.build-and-push.result == 'success' }}
+      run: |
+        echo "🎉 CI/CD Pipeline completed successfully!"
+        echo ""
+        echo "📦 Docker Image Built and Pushed:"
+        echo "   - Image: ${{ needs.build-and-push.outputs.image-tag || 'Built successfully' }}"
+        echo "   - Registry: ghcr.io"
+        echo ""
+
+        if [ "${{ vars.ENABLE_AWS_DEPLOYMENT }}" == "true" ]; then
+          echo "🚀 AWS Deployment Status:"
+          if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+            echo "   ✅ Staging: https://staging.bookmark-sync.example.com"
+          fi
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            echo "   ✅ Production: https://bookmark-sync.example.com"
+          fi
+          if [ "${{ needs.deploy-staging.result }}" == "failure" ] || [ "${{ needs.deploy-production.result }}" == "failure" ]; then
+            echo "   ❌ Some deployments failed. Check the logs for details."
+          fi
+        else
+          echo "ℹ️ AWS Deployment: Disabled"
+          echo "   To enable AWS deployment:"
+          echo "   1. Set repository variable ENABLE_AWS_DEPLOYMENT=true"
+          echo "   2. Configure AWS secrets in repository settings"
+        fi
+
+        echo ""
+        echo "✅ Pipeline Status: SUCCESS"
+
+    - name: Notify failure
+      if: ${{ needs.build-and-push.result == 'failure' }}
+      run: |
+        echo "❌ CI/CD Pipeline failed!"
+        echo ""
+        echo "🐳 Docker Build Status: FAILED"
+        echo "   Please check the build logs for details."
+        echo ""
+        echo "🔧 Common issues:"
+        echo "   - Docker build path problems"
+        echo "   - Go compilation errors"
+        echo "   - Missing dependencies"
+        echo ""
+        echo "📚 Check the following files for troubleshooting:"
+        echo "   - backend/Dockerfile"
+        echo "   - go.mod and go.sum"
+        echo "   - backend/cmd/api/main.go"
+
+        exit 1
