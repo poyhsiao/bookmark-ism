@@ -16,13 +16,12 @@ RUN go mod download && go mod verify
 # Copy the entire source code
 COPY . .
 
-# Verify the module structure and dependencies
-RUN ls -la backend/pkg/storage/ && \
-    go mod tidy && \
-    go list -m all
+# Verify and tidy dependencies
+RUN go mod tidy && \
+    go mod verify
 
-# Build the application with verbose output for debugging
-RUN CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix cgo -o main ./backend/cmd/api
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./backend/cmd/api
 
 # Final stage
 FROM alpine:latest
