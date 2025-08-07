@@ -12,11 +12,11 @@ import (
 type LinkStatus string
 
 const (
-	LinkStatusActive    LinkStatus = "active"
-	LinkStatusBroken    LinkStatus = "broken"
-	LinkStatusRedirect  LinkStatus = "redirect"
-	LinkStatusTimeout   LinkStatus = "timeout"
-	LinkStatusUnknown   LinkStatus = "unknown"
+	LinkStatusActive   LinkStatus = "active"
+	LinkStatusBroken   LinkStatus = "broken"
+	LinkStatusRedirect LinkStatus = "redirect"
+	LinkStatusTimeout  LinkStatus = "timeout"
+	LinkStatusUnknown  LinkStatus = "unknown"
 )
 
 // LinkCheck represents a link monitoring check result
@@ -52,35 +52,35 @@ type LinkMonitoringJob struct {
 
 // LinkMaintenanceReport represents a collection health report
 type LinkMaintenanceReport struct {
-	ID             uint           `json:"id" gorm:"primaryKey"`
-	UserID         uint           `json:"user_id" gorm:"not null;index"`
-	CollectionID   *uint          `json:"collection_id,omitempty" gorm:"index"`
-	ReportType     string         `json:"report_type" gorm:"not null"` // "broken_links", "redirects", "duplicates"
-	TotalLinks     int            `json:"total_links"`
-	BrokenLinks    int            `json:"broken_links"`
-	RedirectLinks  int            `json:"redirect_links"`
-	ActiveLinks    int            `json:"active_links"`
-	Suggestions    string         `json:"suggestions" gorm:"type:text"` // Store as JSON string
-	GeneratedAt    time.Time      `json:"generated_at" gorm:"not null"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
+	ID            uint           `json:"id" gorm:"primaryKey"`
+	UserID        uint           `json:"user_id" gorm:"not null;index"`
+	CollectionID  *uint          `json:"collection_id,omitempty" gorm:"index"`
+	ReportType    string         `json:"report_type" gorm:"not null"` // "broken_links", "redirects", "duplicates"
+	TotalLinks    int            `json:"total_links"`
+	BrokenLinks   int            `json:"broken_links"`
+	RedirectLinks int            `json:"redirect_links"`
+	ActiveLinks   int            `json:"active_links"`
+	Suggestions   string         `json:"suggestions" gorm:"type:text"` // Store as JSON string
+	GeneratedAt   time.Time      `json:"generated_at" gorm:"not null"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 // LinkChangeNotification represents a notification for link changes
 type LinkChangeNotification struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	UserID      uint           `json:"user_id" gorm:"not null;index"`
-	BookmarkID  uint           `json:"bookmark_id" gorm:"not null;index"`
-	ChangeType  string         `json:"change_type" gorm:"not null"` // "broken", "redirect", "content_change"
-	OldValue    string         `json:"old_value"`
-	NewValue    string         `json:"new_value"`
-	Message     string         `json:"message" gorm:"not null"`
-	Read        bool           `json:"read" gorm:"default:false"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
-})
+	ID         uint           `json:"id" gorm:"primaryKey"`
+	UserID     uint           `json:"user_id" gorm:"not null;index"`
+	BookmarkID uint           `json:"bookmark_id" gorm:"not null;index"`
+	ChangeType string         `json:"change_type" gorm:"not null"` // "broken", "redirect", "content_change"
+	OldValue   string         `json:"old_value"`
+	NewValue   string         `json:"new_value"`
+	Message    string         `json:"message" gorm:"not null"`
+	Read       bool           `json:"read" gorm:"default:false"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
+}
 
 // BaseModel contains common fields for all models
 // 包含所有模型的通用字段，提供基本的 CRUD 時間戳和軟刪除功能
