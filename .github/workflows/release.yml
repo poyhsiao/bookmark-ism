@@ -179,8 +179,6 @@ jobs:
 
     - name: Build binary
       run: |
-        cd backend
-
         # Set version info
         VERSION=${GITHUB_REF#refs/tags/}
         COMMIT=$(git rev-parse --short HEAD)
@@ -196,8 +194,6 @@ jobs:
 
     - name: Create archive
       run: |
-        cd backend
-
         # Create archive name
         ARCHIVE_NAME="bookmark-sync-${{ matrix.os }}-${{ matrix.arch }}"
 
@@ -217,7 +213,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: backend/${{ env.ASSET_PATH }}
+        asset_path: ${{ env.ASSET_PATH }}
         asset_name: ${{ env.ASSET_NAME }}
         asset_content_type: application/octet-stream
 
@@ -310,7 +306,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./backend/Dockerfile
+        file: ./Dockerfile
         push: true
         tags: |
           ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}

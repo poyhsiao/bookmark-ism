@@ -160,9 +160,11 @@ This directory contains the complete CI/CD pipeline configuration for the Bookma
 - ✅ Rolling updates
 
 ### Docker Configuration
-- **Backend Dockerfile** (`backend/Dockerfile`): Multi-stage Go application build
+- **Root Dockerfile** (`Dockerfile`): Multi-stage Go application build for CI/CD pipelines
+- **Backend Dockerfile** (`backend/Dockerfile`): Multi-stage Go application build for local development
 - **Security**: Non-root user, minimal base image
 - **Health Checks**: Built-in health monitoring
+- **Build Context**: Standardized build contexts for consistent CI/CD and local development
 
 ## 🔒 Security Features
 

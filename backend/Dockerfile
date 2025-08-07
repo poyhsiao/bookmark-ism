@@ -17,11 +17,11 @@ RUN go mod download && go mod verify
 COPY . .
 
 # Verify the target directory exists and build
-RUN ls -la backend/cmd/api/ && \
+RUN ls -la cmd/api/ && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o main ./backend/cmd/api
+    -o main ./cmd/api
 
 # Final stage
 FROM alpine:3.18

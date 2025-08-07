@@ -133,10 +133,12 @@ jobs:
       run: |
         # Update Go base image
         LATEST_GO=$(curl -s https://api.github.com/repos/golang/go/releases/latest | jq -r '.tag_name' | sed 's/go//')
+        sed -i "s/FROM golang:[0-9.]*/FROM golang:$LATEST_GO/" Dockerfile
         sed -i "s/FROM golang:[0-9.]*/FROM golang:$LATEST_GO/" backend/Dockerfile
 
         # Update Alpine base image
         LATEST_ALPINE=$(curl -s https://registry.hub.docker.com/v2/repositories/library/alpine/tags/ | jq -r '.results[0].name')
+        sed -i "s/FROM alpine:[0-9.]*/FROM alpine:$LATEST_ALPINE/" Dockerfile
         sed -i "s/FROM alpine:[0-9.]*/FROM alpine:$LATEST_ALPINE/" backend/Dockerfile
 
     - name: Update docker-compose images

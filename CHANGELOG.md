@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### GitHub Actions Build Context Issues ✅ RESOLVED
+
+- **Build Context Standardization**: Fixed inconsistent Docker build contexts across CI/CD workflows
+- **Dockerfile Path Corrections**: Updated all GitHub Actions workflows to use standardized Dockerfile references
+- **CI Pipeline Fix**: Resolved build failures in CI workflow (`ci.yml`) by correcting Dockerfile path from `./backend/Dockerfile` to `./Dockerfile`
+- **CD Pipeline Fix**: Fixed deployment pipeline (`cd.yml`) Docker build context and image push operations
+- **Release Pipeline Fix**: Corrected release workflow (`release.yml`) binary build paths and Docker image building
+- **Dependency Update Enhancement**: Updated dependency management to maintain both root and backend Dockerfiles
+- **Build Path Consistency**: Ensured Go build commands use correct relative paths (`./backend/cmd/api`) from root context
+- **Documentation Updates**: Created comprehensive documentation explaining the build context fix and dual Dockerfile strategy
+
+#### Technical Implementation
+
+- **Root Dockerfile** (`./Dockerfile`): Optimized for GitHub Actions with root directory build context
+- **Backend Dockerfile** (`./backend/Dockerfile`): Maintained for local development with backend directory context
+- **Workflow Updates**: All 4 GitHub Actions workflows updated with consistent Dockerfile references
+- **Build Commands**: Standardized Go build paths across all environments
+- **Error Resolution**: Eliminated "exit code: 1" errors in GitHub Actions build processes
+
+#### Files Modified
+
+- `.github/workflows/ci.yml` - Fixed Dockerfile path reference
+- `.github/workflows/cd.yml` - Fixed Dockerfile path reference
+- `.github/workflows/release.yml` - Fixed Dockerfile path and build paths
+- `.github/workflows/dependency-update.yml` - Enhanced to update both Dockerfiles
+- `GITHUB_ACTIONS_BUILD_CONTEXT_FIX.md` - Comprehensive technical documentation
+- `GITHUB_ACTIONS_FIXES.md` - Summary documentation of all fixes applied
+
 ### Ready for Next Phase
 
 **Phase 12: Enterprise Features** - In Progress
