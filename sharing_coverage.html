@@ -1,0 +1,1352 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>sharing: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">bookmark-sync-service/backend/internal/sharing/handlers.go (29.4%)</option>
+				
+				<option value="file1">bookmark-sync-service/backend/internal/sharing/models.go (90.5%)</option>
+				
+				<option value="file2">bookmark-sync-service/backend/internal/sharing/service.go (30.9%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package sharing
+
+import (
+        "net/http"
+        "strconv"
+
+        "github.com/gin-gonic/gin"
+
+        "bookmark-sync-service/backend/pkg/middleware"
+        "bookmark-sync-service/backend/pkg/utils"
+)
+
+// Handler represents the sharing HTTP handler
+type Handler struct {
+        service *Service
+}
+
+// NewHandler creates a new sharing handler
+func NewHandler(service *Service) *Handler <span class="cov10" title="11">{
+        return &amp;Handler{
+                service: service,
+        }
+}</span>
+
+// CreateShare creates a new collection share
+// @Summary Create a new collection share
+// @Description Create a new share for a collection with specified permissions
+// @Tags sharing
+// @Accept json
+// @Produce json
+// @Param request body CreateShareRequest true "Share creation request"
+// @Success 201 {object} ShareResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares [post]
+func (h *Handler) CreateShare(c *gin.Context) <span class="cov5" title="3">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov3" title="2">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">var request CreateShareRequest
+        if err := c.ShouldBindJSON(&amp;request); err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request format", map[string]interface{}{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov0" title="0">share, err := h.service.CreateShare(c.Request.Context(), uint(userID), &amp;request)
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrCollectionNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "collection_not_found", "collection not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                case ErrInvalidCollectionID, ErrInvalidShareType, ErrInvalidPermission:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request parameters", map[string]interface{}{"error": err.Error()})</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to create share", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusCreated, utils.APIResponse{
+                Success: true,
+                Message: "share created successfully",
+                Data:    share,
+        })</span>
+}
+
+// GetShare retrieves a share by token
+// @Summary Get share by token
+// @Description Retrieve a shared collection by its share token
+// @Tags sharing
+// @Produce json
+// @Param token path string true "Share token"
+// @Param password query string false "Password for protected shares"
+// @Success 200 {object} ShareResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 410 {object} utils.ErrorResponse "Share expired"
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares/{token} [get]
+func (h *Handler) GetShare(c *gin.Context) <span class="cov0" title="0">{
+        token := c.Param("token")
+        if token == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "missing_token", "share token is required", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">share, err := h.service.GetShareByToken(c.Request.Context(), token)
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrShareNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "share_not_found", "share not found", nil)</span>
+                case ErrShareExpired:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusGone, "share_expired", "share has expired", nil)</span>
+                case ErrShareInactive:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusGone, "share_inactive", "share is inactive", nil)</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to get share", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        // Check password if required
+        <span class="cov0" title="0">if share.Password != "" </span><span class="cov0" title="0">{
+                password := c.Query("password")
+                if password != share.Password </span><span class="cov0" title="0">{ // TODO: Use proper password hashing
+                        utils.ErrorResponse(c, http.StatusUnauthorized, "invalid_password", "invalid password", nil)
+                        return
+                }</span>
+        }
+
+        // Record view activity
+        <span class="cov0" title="0">userIDStr := middleware.GetUserID(c)
+        var userIDPtr *uint
+        if userIDStr != "" </span><span class="cov0" title="0">{
+                if userID, err := strconv.ParseUint(userIDStr, 10, 32); err == nil </span><span class="cov0" title="0">{
+                        uid := uint(userID)
+                        userIDPtr = &amp;uid
+                }</span>
+        }
+
+        <span class="cov0" title="0">if err := h.service.RecordActivity(c.Request.Context(), share.ID, userIDPtr, "view",
+                c.ClientIP(), c.GetHeader("User-Agent"), nil); err != nil </span>{<span class="cov0" title="0">
+                // Log error but don't fail the request
+                // TODO: Use proper logging
+        }</span>
+
+        <span class="cov0" title="0">response := share.ToResponse("http://localhost:3000") // TODO: Get base URL from config
+        c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "share retrieved successfully",
+                Data:    response,
+        })</span>
+}
+
+// UpdateShare updates an existing share
+// @Summary Update share
+// @Description Update an existing collection share
+// @Tags sharing
+// @Accept json
+// @Produce json
+// @Param id path int true "Share ID"
+// @Param request body UpdateShareRequest true "Share update request"
+// @Success 200 {object} ShareResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares/{id} [put]
+func (h *Handler) UpdateShare(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">shareIDStr := c.Param("id")
+        shareID, err := strconv.ParseUint(shareIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_share_id", "invalid share ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">var request UpdateShareRequest
+        if err := c.ShouldBindJSON(&amp;request); err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request format", map[string]interface{}{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov0" title="0">share, err := h.service.UpdateShare(c.Request.Context(), uint(userID), uint(shareID), &amp;request)
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrShareNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "share_not_found", "share not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                case ErrInvalidShareType, ErrInvalidPermission:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request parameters", map[string]interface{}{"error": err.Error()})</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to update share", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "share updated successfully",
+                Data:    share,
+        })</span>
+}
+
+// DeleteShare deletes a share
+// @Summary Delete share
+// @Description Delete a collection share
+// @Tags sharing
+// @Param id path int true "Share ID"
+// @Success 200 {object} utils.SuccessResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares/{id} [delete]
+func (h *Handler) DeleteShare(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">shareIDStr := c.Param("id")
+        shareID, err := strconv.ParseUint(shareIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_share_id", "invalid share ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := h.service.DeleteShare(c.Request.Context(), uint(userID), uint(shareID)); err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrShareNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "share_not_found", "share not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to delete share", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "share deleted successfully",
+        })</span>
+}
+
+// GetUserShares retrieves all shares for the authenticated user
+// @Summary Get user shares
+// @Description Retrieve all shares created by the authenticated user
+// @Tags sharing
+// @Produce json
+// @Success 200 {array} ShareResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares [get]
+func (h *Handler) GetUserShares(c *gin.Context) <span class="cov0" title="0">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">shares, err := h.service.GetUserShares(c.Request.Context(), uint(userID))
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to get user shares", map[string]interface{}{"error": err.Error()})
+                return
+        }</span>
+
+        // Convert to response format
+        <span class="cov0" title="0">responses := make([]ShareResponse, len(shares))
+        for i, share := range shares </span><span class="cov0" title="0">{
+                responses[i] = *share.ToResponse("http://localhost:3000") // TODO: Get base URL from config
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "user shares retrieved successfully",
+                Data:    responses,
+        })</span>
+}
+
+// GetCollectionShares retrieves all shares for a specific collection
+// @Summary Get collection shares
+// @Description Retrieve all shares for a specific collection
+// @Tags sharing
+// @Produce json
+// @Param id path int true "Collection ID"
+// @Success 200 {array} ShareResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/collections/{id}/shares [get]
+func (h *Handler) GetCollectionShares(c *gin.Context) <span class="cov0" title="0">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">collectionIDStr := c.Param("id")
+        collectionID, err := strconv.ParseUint(collectionIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_collection_id", "invalid collection ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">shares, err := h.service.GetCollectionShares(c.Request.Context(), uint(userID), uint(collectionID))
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrCollectionNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "collection_not_found", "collection not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to get collection shares", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        // Convert to response format
+        <span class="cov0" title="0">responses := make([]ShareResponse, len(shares))
+        for i, share := range shares </span><span class="cov0" title="0">{
+                responses[i] = *share.ToResponse("http://localhost:3000") // TODO: Get base URL from config
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "collection shares retrieved successfully",
+                Data:    responses,
+        })</span>
+}
+
+// ForkCollection creates a fork of a shared collection
+// @Summary Fork collection
+// @Description Create a fork of a shared collection
+// @Tags sharing
+// @Accept json
+// @Produce json
+// @Param id path int true "Original Collection ID"
+// @Param request body ForkRequest true "Fork request"
+// @Success 201 {object} database.Collection
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/collections/{id}/fork [post]
+func (h *Handler) ForkCollection(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">collectionIDStr := c.Param("id")
+        collectionID, err := strconv.ParseUint(collectionIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_collection_id", "invalid collection ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">var request ForkRequest
+        if err := c.ShouldBindJSON(&amp;request); err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request format", map[string]interface{}{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov0" title="0">forkedCollection, err := h.service.ForkCollection(c.Request.Context(), uint(userID), uint(collectionID), &amp;request)
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrCollectionNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "collection_not_found", "collection not found", nil)</span>
+                case ErrCannotForkOwnCollection:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusBadRequest, "cannot_fork_own", "cannot fork own collection", nil)</span>
+                case ErrForkNotAllowed:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "fork_not_allowed", "fork not allowed", nil)</span>
+                case ErrInvalidName:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request parameters", map[string]interface{}{"error": err.Error()})</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to fork collection", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusCreated, utils.APIResponse{
+                Success: true,
+                Message: "collection forked successfully",
+                Data:    forkedCollection,
+        })</span>
+}
+
+// AddCollaborator adds a collaborator to a collection
+// @Summary Add collaborator
+// @Description Add a collaborator to a collection
+// @Tags sharing
+// @Accept json
+// @Produce json
+// @Param id path int true "Collection ID"
+// @Param request body CollaboratorRequest true "Collaborator request"
+// @Success 201 {object} CollectionCollaborator
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 409 {object} utils.ErrorResponse "Collaborator already exists"
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/collections/{id}/collaborators [post]
+func (h *Handler) AddCollaborator(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">collectionIDStr := c.Param("id")
+        collectionID, err := strconv.ParseUint(collectionIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_collection_id", "invalid collection ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">var request CollaboratorRequest
+        if err := c.ShouldBindJSON(&amp;request); err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request format", map[string]interface{}{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov0" title="0">collaborator, err := h.service.AddCollaborator(c.Request.Context(), uint(userID), uint(collectionID), &amp;request)
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrCollectionNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "collection_not_found", "collection not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                case ErrCollaboratorExists:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusConflict, "collaborator_exists", "collaborator already exists", nil)</span>
+                case ErrInvalidEmail, ErrInvalidPermission:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusBadRequest, "invalid_request", "invalid request parameters", map[string]interface{}{"error": err.Error()})</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to add collaborator", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusCreated, utils.APIResponse{
+                Success: true,
+                Message: "collaborator added successfully",
+                Data:    collaborator,
+        })</span>
+}
+
+// AcceptCollaboration accepts a collaboration invitation
+// @Summary Accept collaboration
+// @Description Accept a collaboration invitation
+// @Tags sharing
+// @Param id path int true "Collaborator ID"
+// @Success 200 {object} utils.SuccessResponse
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/collaborations/{id}/accept [post]
+func (h *Handler) AcceptCollaboration(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">collaboratorIDStr := c.Param("id")
+        collaboratorID, err := strconv.ParseUint(collaboratorIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_collaborator_id", "invalid collaborator ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := h.service.AcceptCollaboration(c.Request.Context(), uint(userID), uint(collaboratorID)); err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to accept collaboration", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "collaboration accepted successfully",
+        })</span>
+}
+
+// GetShareActivity retrieves activity for a share
+// @Summary Get share activity
+// @Description Retrieve activity logs for a share
+// @Tags sharing
+// @Produce json
+// @Param id path int true "Share ID"
+// @Success 200 {array} ShareActivity
+// @Failure 400 {object} utils.ErrorResponse
+// @Failure 401 {object} utils.ErrorResponse
+// @Failure 404 {object} utils.ErrorResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /api/v1/shares/{id}/activity [get]
+func (h *Handler) GetShareActivity(c *gin.Context) <span class="cov1" title="1">{
+        userIDStr := middleware.GetUserID(c)
+        if userIDStr == "" </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusUnauthorized, "unauthorized", "user not authenticated", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">userID, err := strconv.ParseUint(userIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_user_id", "invalid user ID", nil)
+                return
+        }</span>
+
+        <span class="cov1" title="1">shareIDStr := c.Param("id")
+        shareID, err := strconv.ParseUint(shareIDStr, 10, 32)
+        if err != nil </span><span class="cov1" title="1">{
+                utils.ErrorResponse(c, http.StatusBadRequest, "invalid_share_id", "invalid share ID", nil)
+                return
+        }</span>
+
+        <span class="cov0" title="0">activities, err := h.service.GetShareActivity(c.Request.Context(), uint(userID), uint(shareID))
+        if err != nil </span><span class="cov0" title="0">{
+                switch err </span>{
+                case ErrShareNotFound:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusNotFound, "share_not_found", "share not found", nil)</span>
+                case ErrUnauthorized:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusForbidden, "unauthorized", "unauthorized access", nil)</span>
+                default:<span class="cov0" title="0">
+                        utils.ErrorResponse(c, http.StatusInternalServerError, "internal_error", "failed to get share activity", map[string]interface{}{"error": err.Error()})</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, utils.APIResponse{
+                Success: true,
+                Message: "share activity retrieved successfully",
+                Data:    activities,
+        })</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package sharing
+
+import (
+        "time"
+
+        "gorm.io/gorm"
+)
+
+// ShareType represents the type of sharing
+type ShareType string
+
+const (
+        ShareTypePublic      ShareType = "public"
+        ShareTypePrivate     ShareType = "private"
+        ShareTypeShared      ShareType = "shared"
+        ShareTypeCollaborate ShareType = "collaborate"
+)
+
+// SharePermission represents the permission level for sharing
+type SharePermission string
+
+const (
+        PermissionView    SharePermission = "view"
+        PermissionComment SharePermission = "comment"
+        PermissionEdit    SharePermission = "edit"
+        PermissionAdmin   SharePermission = "admin"
+)
+
+// CollectionShare represents a shared collection
+type CollectionShare struct {
+        ID           uint            `json:"id" gorm:"primaryKey"`
+        CollectionID uint            `json:"collection_id" gorm:"not null;index"`
+        UserID       uint            `json:"user_id" gorm:"not null;index"`
+        ShareType    ShareType       `json:"share_type" gorm:"not null;default:'private'"`
+        Permission   SharePermission `json:"permission" gorm:"not null;default:'view'"`
+        ShareToken   string          `json:"share_token" gorm:"unique;not null;index"`
+        Title        string          `json:"title" gorm:"size:255"`
+        Description  string          `json:"description" gorm:"type:text"`
+        Password     string          `json:"-" gorm:"size:255"` // Optional password protection
+        ExpiresAt    *time.Time      `json:"expires_at"`
+        ViewCount    int64           `json:"view_count" gorm:"default:0"`
+        IsActive     bool            `json:"is_active" gorm:"default:true"`
+        CreatedAt    time.Time       `json:"created_at"`
+        UpdatedAt    time.Time       `json:"updated_at"`
+        DeletedAt    gorm.DeletedAt  `json:"-" gorm:"index"`
+}
+
+// CollectionCollaborator represents a collaborator on a shared collection
+type CollectionCollaborator struct {
+        ID           uint            `json:"id" gorm:"primaryKey"`
+        CollectionID uint            `json:"collection_id" gorm:"not null;index"`
+        UserID       uint            `json:"user_id" gorm:"not null;index"`
+        InviterID    uint            `json:"inviter_id" gorm:"not null"`
+        Permission   SharePermission `json:"permission" gorm:"not null;default:'view'"`
+        Status       string          `json:"status" gorm:"not null;default:'pending'"` // pending, accepted, declined
+        InvitedAt    time.Time       `json:"invited_at"`
+        AcceptedAt   *time.Time      `json:"accepted_at"`
+        CreatedAt    time.Time       `json:"created_at"`
+        UpdatedAt    time.Time       `json:"updated_at"`
+        DeletedAt    gorm.DeletedAt  `json:"-" gorm:"index"`
+}
+
+// CollectionFork represents a forked collection
+type CollectionFork struct {
+        ID                uint           `json:"id" gorm:"primaryKey"`
+        OriginalID        uint           `json:"original_id" gorm:"not null;index"`
+        ForkedID          uint           `json:"forked_id" gorm:"not null;index"`
+        UserID            uint           `json:"user_id" gorm:"not null;index"`
+        ForkReason        string         `json:"fork_reason" gorm:"size:500"`
+        PreserveBookmarks bool           `json:"preserve_bookmarks" gorm:"default:true"`
+        PreserveStructure bool           `json:"preserve_structure" gorm:"default:true"`
+        CreatedAt         time.Time      `json:"created_at"`
+        UpdatedAt         time.Time      `json:"updated_at"`
+        DeletedAt         gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+// ShareActivity represents activity on shared collections
+type ShareActivity struct {
+        ID           uint           `json:"id" gorm:"primaryKey"`
+        ShareID      uint           `json:"share_id" gorm:"not null;index"`
+        UserID       *uint          `json:"user_id" gorm:"index"`          // Nullable for anonymous views
+        ActivityType string         `json:"activity_type" gorm:"not null"` // view, comment, edit, fork
+        IPAddress    string         `json:"ip_address" gorm:"size:45"`
+        UserAgent    string         `json:"user_agent" gorm:"size:500"`
+        Metadata     string         `json:"metadata" gorm:"type:json"`
+        CreatedAt    time.Time      `json:"created_at"`
+        DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+// CreateShareRequest represents a request to create a share
+type CreateShareRequest struct {
+        CollectionID uint            `json:"collection_id" binding:"required"`
+        ShareType    ShareType       `json:"share_type" binding:"required,oneof=public private shared collaborate"`
+        Permission   SharePermission `json:"permission" binding:"required,oneof=view comment edit admin"`
+        Title        string          `json:"title" binding:"max=255"`
+        Description  string          `json:"description" binding:"max=1000"`
+        Password     string          `json:"password" binding:"max=255"`
+        ExpiresAt    *time.Time      `json:"expires_at"`
+}
+
+// UpdateShareRequest represents a request to update a share
+type UpdateShareRequest struct {
+        ShareType   *ShareType       `json:"share_type,omitempty" binding:"omitempty,oneof=public private shared collaborate"`
+        Permission  *SharePermission `json:"permission,omitempty" binding:"omitempty,oneof=view comment edit admin"`
+        Title       *string          `json:"title,omitempty" binding:"omitempty,max=255"`
+        Description *string          `json:"description,omitempty" binding:"omitempty,max=1000"`
+        Password    *string          `json:"password,omitempty" binding:"omitempty,max=255"`
+        ExpiresAt   *time.Time       `json:"expires_at,omitempty"`
+        IsActive    *bool            `json:"is_active,omitempty"`
+}
+
+// ShareResponse represents a share response
+type ShareResponse struct {
+        ID           uint            `json:"id"`
+        CollectionID uint            `json:"collection_id"`
+        ShareType    ShareType       `json:"share_type"`
+        Permission   SharePermission `json:"permission"`
+        ShareToken   string          `json:"share_token"`
+        ShareURL     string          `json:"share_url"`
+        Title        string          `json:"title"`
+        Description  string          `json:"description"`
+        HasPassword  bool            `json:"has_password"`
+        ExpiresAt    *time.Time      `json:"expires_at"`
+        ViewCount    int64           `json:"view_count"`
+        IsActive     bool            `json:"is_active"`
+        CreatedAt    time.Time       `json:"created_at"`
+        UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+// CollaboratorRequest represents a request to add a collaborator
+type CollaboratorRequest struct {
+        Email      string          `json:"email" binding:"required,email"`
+        Permission SharePermission `json:"permission" binding:"required,oneof=view comment edit admin"`
+        Message    string          `json:"message" binding:"max=500"`
+}
+
+// ForkRequest represents a request to fork a collection
+type ForkRequest struct {
+        Name              string `json:"name" binding:"required,max=255"`
+        Description       string `json:"description" binding:"max=1000"`
+        ForkReason        string `json:"fork_reason" binding:"max=500"`
+        PreserveBookmarks bool   `json:"preserve_bookmarks"`
+        PreserveStructure bool   `json:"preserve_structure"`
+}
+
+// Validate validates the CreateShareRequest
+func (r *CreateShareRequest) Validate() error <span class="cov10" title="6">{
+        if r.CollectionID == 0 </span><span class="cov1" title="1">{
+                return ErrInvalidCollectionID
+        }</span>
+
+        <span class="cov9" title="5">if r.ShareType == "" </span><span class="cov1" title="1">{
+                return ErrInvalidShareType
+        }</span>
+
+        <span class="cov7" title="4">if r.Permission == "" </span><span class="cov1" title="1">{
+                return ErrInvalidPermission
+        }</span>
+
+        <span class="cov6" title="3">return nil</span>
+}
+
+// Validate validates the UpdateShareRequest
+func (r *UpdateShareRequest) Validate() error <span class="cov1" title="1">{
+        if r.ShareType != nil &amp;&amp; *r.ShareType == "" </span><span class="cov0" title="0">{
+                return ErrInvalidShareType
+        }</span>
+
+        <span class="cov1" title="1">if r.Permission != nil &amp;&amp; *r.Permission == "" </span><span class="cov0" title="0">{
+                return ErrInvalidPermission
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// Validate validates the CollaboratorRequest
+func (r *CollaboratorRequest) Validate() error <span class="cov6" title="3">{
+        if r.Email == "" </span><span class="cov1" title="1">{
+                return ErrInvalidEmail
+        }</span>
+
+        <span class="cov4" title="2">if r.Permission == "" </span><span class="cov1" title="1">{
+                return ErrInvalidPermission
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// Validate validates the ForkRequest
+func (r *ForkRequest) Validate() error <span class="cov4" title="2">{
+        if r.Name == "" </span><span class="cov1" title="1">{
+                return ErrInvalidName
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// ToResponse converts CollectionShare to ShareResponse
+func (cs *CollectionShare) ToResponse(baseURL string) *ShareResponse <span class="cov4" title="2">{
+        return &amp;ShareResponse{
+                ID:           cs.ID,
+                CollectionID: cs.CollectionID,
+                ShareType:    cs.ShareType,
+                Permission:   cs.Permission,
+                ShareToken:   cs.ShareToken,
+                ShareURL:     baseURL + "/shared/" + cs.ShareToken,
+                Title:        cs.Title,
+                Description:  cs.Description,
+                HasPassword:  cs.Password != "",
+                ExpiresAt:    cs.ExpiresAt,
+                ViewCount:    cs.ViewCount,
+                IsActive:     cs.IsActive,
+                CreatedAt:    cs.CreatedAt,
+                UpdatedAt:    cs.UpdatedAt,
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package sharing
+
+import (
+        "context"
+        "crypto/rand"
+        "encoding/hex"
+        "fmt"
+        "time"
+
+        "gorm.io/gorm"
+
+        "bookmark-sync-service/backend/pkg/database"
+)
+
+// Service represents the sharing service
+type Service struct {
+        db      *gorm.DB
+        baseURL string
+}
+
+// NewService creates a new sharing service
+func NewService(db *gorm.DB, baseURL string) *Service <span class="cov1" title="1">{
+        return &amp;Service{
+                db:      db,
+                baseURL: baseURL,
+        }
+}</span>
+
+// CreateShare creates a new collection share
+func (s *Service) CreateShare(ctx context.Context, userID uint, request *CreateShareRequest) (*ShareResponse, error) <span class="cov6" title="2">{
+        if err := request.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Check if collection exists and user has access
+        <span class="cov6" title="2">var collection database.Collection
+        if err := s.db.First(&amp;collection, request.CollectionID).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        return nil, ErrCollectionNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find collection: %w", err)</span>
+        }
+
+        // Check if user owns the collection or has admin permission
+        <span class="cov1" title="1">if collection.UserID != userID </span><span class="cov0" title="0">{
+                // TODO: Check if user has admin permission on this collection
+                return nil, ErrUnauthorized
+        }</span>
+
+        // Generate unique share token
+        <span class="cov1" title="1">shareToken, err := s.generateShareToken()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate share token: %w", err)
+        }</span>
+
+        // Create share
+        <span class="cov1" title="1">share := &amp;CollectionShare{
+                CollectionID: request.CollectionID,
+                UserID:       userID,
+                ShareType:    request.ShareType,
+                Permission:   request.Permission,
+                ShareToken:   shareToken,
+                Title:        request.Title,
+                Description:  request.Description,
+                Password:     request.Password, // TODO: Hash password
+                ExpiresAt:    request.ExpiresAt,
+                IsActive:     true,
+        }
+
+        if err := s.db.Create(share).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create share: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return share.ToResponse(s.baseURL), nil</span>
+}
+
+// GetShareByToken retrieves a share by its token
+func (s *Service) GetShareByToken(ctx context.Context, token string) (*CollectionShare, error) <span class="cov10" title="3">{
+        var share CollectionShare
+        if err := s.db.First(&amp;share, "share_token = ?", token).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        return nil, ErrShareNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find share: %w", err)</span>
+        }
+
+        // Check if share is active
+        <span class="cov6" title="2">if !share.IsActive </span><span class="cov0" title="0">{
+                return nil, ErrShareInactive
+        }</span>
+
+        // Check if share has expired
+        <span class="cov6" title="2">if share.ExpiresAt != nil &amp;&amp; share.ExpiresAt.Before(time.Now()) </span><span class="cov1" title="1">{
+                return nil, ErrShareExpired
+        }</span>
+
+        <span class="cov1" title="1">return &amp;share, nil</span>
+}
+
+// UpdateShare updates an existing share
+func (s *Service) UpdateShare(ctx context.Context, userID uint, shareID uint, request *UpdateShareRequest) (*ShareResponse, error) <span class="cov1" title="1">{
+        if err := request.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Get existing share
+        <span class="cov1" title="1">var share CollectionShare
+        if err := s.db.First(&amp;share, shareID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, ErrShareNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find share: %w", err)</span>
+        }
+
+        // Check if user owns the share
+        <span class="cov1" title="1">if share.UserID != userID </span><span class="cov0" title="0">{
+                return nil, ErrUnauthorized
+        }</span>
+
+        // Update fields
+        <span class="cov1" title="1">if request.ShareType != nil </span><span class="cov1" title="1">{
+                share.ShareType = *request.ShareType
+        }</span>
+        <span class="cov1" title="1">if request.Permission != nil </span><span class="cov0" title="0">{
+                share.Permission = *request.Permission
+        }</span>
+        <span class="cov1" title="1">if request.Title != nil </span><span class="cov1" title="1">{
+                share.Title = *request.Title
+        }</span>
+        <span class="cov1" title="1">if request.Description != nil </span><span class="cov0" title="0">{
+                share.Description = *request.Description
+        }</span>
+        <span class="cov1" title="1">if request.Password != nil </span><span class="cov0" title="0">{
+                share.Password = *request.Password // TODO: Hash password
+        }</span>
+        <span class="cov1" title="1">if request.ExpiresAt != nil </span><span class="cov0" title="0">{
+                share.ExpiresAt = request.ExpiresAt
+        }</span>
+        <span class="cov1" title="1">if request.IsActive != nil </span><span class="cov0" title="0">{
+                share.IsActive = *request.IsActive
+        }</span>
+
+        <span class="cov1" title="1">if err := s.db.Save(&amp;share).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to update share: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return share.ToResponse(s.baseURL), nil</span>
+}
+
+// DeleteShare deletes a share
+func (s *Service) DeleteShare(ctx context.Context, userID uint, shareID uint) error <span class="cov1" title="1">{
+        // Get existing share
+        var share CollectionShare
+        if err := s.db.First(&amp;share, shareID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return ErrShareNotFound
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("failed to find share: %w", err)</span>
+        }
+
+        // Check if user owns the share
+        <span class="cov1" title="1">if share.UserID != userID </span><span class="cov0" title="0">{
+                return ErrUnauthorized
+        }</span>
+
+        <span class="cov1" title="1">if err := s.db.Delete(&amp;share, shareID).Error; err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete share: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// GetUserShares retrieves all shares for a user
+func (s *Service) GetUserShares(ctx context.Context, userID uint) ([]CollectionShare, error) <span class="cov1" title="1">{
+        var shares []CollectionShare
+        if err := s.db.Find(&amp;shares, "user_id = ?", userID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get user shares: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return shares, nil</span>
+}
+
+// GetCollectionShares retrieves all shares for a collection
+func (s *Service) GetCollectionShares(ctx context.Context, userID uint, collectionID uint) ([]CollectionShare, error) <span class="cov0" title="0">{
+        // Check if user owns the collection
+        var collection database.Collection
+        if err := s.db.First(&amp;collection, collectionID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, ErrCollectionNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find collection: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if collection.UserID != userID </span><span class="cov0" title="0">{
+                return nil, ErrUnauthorized
+        }</span>
+
+        <span class="cov0" title="0">var shares []CollectionShare
+        if err := s.db.Find(&amp;shares, "collection_id = ?", collectionID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get collection shares: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return shares, nil</span>
+}
+
+// ForkCollection creates a fork of a collection
+func (s *Service) ForkCollection(ctx context.Context, userID uint, originalCollectionID uint, request *ForkRequest) (*database.Collection, error) <span class="cov0" title="0">{
+        if err := request.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Get original collection
+        <span class="cov0" title="0">var originalCollection database.Collection
+        if err := s.db.Preload("Bookmarks").First(&amp;originalCollection, originalCollectionID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, ErrCollectionNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find original collection: %w", err)</span>
+        }
+
+        // Check if user is trying to fork their own collection
+        <span class="cov0" title="0">if originalCollection.UserID == userID </span><span class="cov0" title="0">{
+                return nil, ErrCannotForkOwnCollection
+        }</span>
+
+        // TODO: Check if collection allows forking based on share settings
+
+        <span class="cov0" title="0">var forkedCollection *database.Collection
+        var fork *CollectionFork
+
+        // Use transaction to ensure consistency
+        err := s.db.Transaction(func(tx *gorm.DB) error </span><span class="cov0" title="0">{
+                // Create forked collection
+                forkedCollection = &amp;database.Collection{
+                        UserID:      userID,
+                        Name:        request.Name,
+                        Description: request.Description,
+                        Visibility:  "private", // Forked collections are private by default
+                }
+
+                if err := tx.Create(forkedCollection).Error; err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to create forked collection: %w", err)
+                }</span>
+
+                // Copy bookmarks if requested
+                <span class="cov0" title="0">if request.PreserveBookmarks </span><span class="cov0" title="0">{
+                        for _, bookmark := range originalCollection.Bookmarks </span><span class="cov0" title="0">{
+                                newBookmark := database.Bookmark{
+                                        UserID:      userID,
+                                        URL:         bookmark.URL,
+                                        Title:       bookmark.Title,
+                                        Description: bookmark.Description,
+                                        Tags:        bookmark.Tags,
+                                }
+
+                                if err := tx.Create(&amp;newBookmark).Error; err != nil </span><span class="cov0" title="0">{
+                                        return fmt.Errorf("failed to create forked bookmark: %w", err)
+                                }</span>
+
+                                // Associate bookmark with forked collection
+                                <span class="cov0" title="0">if err := tx.Exec("INSERT INTO collection_bookmarks (collection_id, bookmark_id) VALUES (?, ?)",
+                                        forkedCollection.ID, newBookmark.ID).Error; err != nil </span><span class="cov0" title="0">{
+                                        return fmt.Errorf("failed to associate bookmark with forked collection: %w", err)
+                                }</span>
+                        }
+                }
+
+                // Create fork record
+                <span class="cov0" title="0">fork = &amp;CollectionFork{
+                        OriginalID:        originalCollectionID,
+                        ForkedID:          forkedCollection.ID,
+                        UserID:            userID,
+                        ForkReason:        request.ForkReason,
+                        PreserveBookmarks: request.PreserveBookmarks,
+                        PreserveStructure: request.PreserveStructure,
+                }
+
+                if err := tx.Create(fork).Error; err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to create fork record: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">return nil</span>
+        })
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return forkedCollection, nil</span>
+}
+
+// AddCollaborator adds a collaborator to a collection
+func (s *Service) AddCollaborator(ctx context.Context, userID uint, collectionID uint, request *CollaboratorRequest) (*CollectionCollaborator, error) <span class="cov0" title="0">{
+        if err := request.Validate(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Check if collection exists and user has access
+        <span class="cov0" title="0">var collection database.Collection
+        if err := s.db.First(&amp;collection, collectionID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, ErrCollectionNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find collection: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if collection.UserID != userID </span><span class="cov0" title="0">{
+                return nil, ErrUnauthorized
+        }</span>
+
+        // Find user by email
+        <span class="cov0" title="0">var collaboratorUser database.User
+        if err := s.db.First(&amp;collaboratorUser, "email = ?", request.Email).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("user not found with email: %s", request.Email)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find user: %w", err)</span>
+        }
+
+        // Check if collaborator already exists
+        <span class="cov0" title="0">var existingCollaborator CollectionCollaborator
+        if err := s.db.First(&amp;existingCollaborator, "collection_id = ? AND user_id = ?",
+                collectionID, collaboratorUser.ID).Error; err == nil </span><span class="cov0" title="0">{
+                return nil, ErrCollaboratorExists
+        }</span>
+
+        // Create collaborator
+        <span class="cov0" title="0">collaborator := &amp;CollectionCollaborator{
+                CollectionID: collectionID,
+                UserID:       collaboratorUser.ID,
+                InviterID:    userID,
+                Permission:   request.Permission,
+                Status:       "pending",
+                InvitedAt:    time.Now(),
+        }
+
+        if err := s.db.Create(collaborator).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create collaborator: %w", err)
+        }</span>
+
+        // TODO: Send invitation email
+
+        <span class="cov0" title="0">return collaborator, nil</span>
+}
+
+// AcceptCollaboration accepts a collaboration invitation
+func (s *Service) AcceptCollaboration(ctx context.Context, userID uint, collaboratorID uint) error <span class="cov0" title="0">{
+        var collaborator CollectionCollaborator
+        if err := s.db.First(&amp;collaborator, collaboratorID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return fmt.Errorf("collaboration not found")
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("failed to find collaboration: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if collaborator.UserID != userID </span><span class="cov0" title="0">{
+                return ErrUnauthorized
+        }</span>
+
+        <span class="cov0" title="0">if collaborator.Status != "pending" </span><span class="cov0" title="0">{
+                return fmt.Errorf("collaboration already %s", collaborator.Status)
+        }</span>
+
+        <span class="cov0" title="0">now := time.Now()
+        collaborator.Status = "accepted"
+        collaborator.AcceptedAt = &amp;now
+
+        if err := s.db.Save(&amp;collaborator).Error; err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to accept collaboration: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// RecordActivity records activity on a shared collection
+func (s *Service) RecordActivity(ctx context.Context, shareID uint, userID *uint, activityType, ipAddress, userAgent string, metadata map[string]interface{}) error <span class="cov1" title="1">{
+        activity := &amp;ShareActivity{
+                ShareID:      shareID,
+                UserID:       userID,
+                ActivityType: activityType,
+                IPAddress:    ipAddress,
+                UserAgent:    userAgent,
+        }
+
+        // TODO: Serialize metadata to JSON
+
+        if err := s.db.Create(activity).Error; err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to record activity: %w", err)
+        }</span>
+
+        // Update view count if it's a view activity
+        <span class="cov1" title="1">if activityType == "view" </span><span class="cov1" title="1">{
+                if err := s.db.Model(&amp;CollectionShare{}).Where("id = ?", shareID).
+                        UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil </span><span class="cov0" title="0">{
+                        // Log error but don't fail the request
+                        fmt.Printf("failed to update view count: %v\n", err)
+                }</span>
+        }
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// GetShareActivity retrieves activity for a share
+func (s *Service) GetShareActivity(ctx context.Context, userID uint, shareID uint) ([]ShareActivity, error) <span class="cov0" title="0">{
+        // Check if user owns the share
+        var share CollectionShare
+        if err := s.db.First(&amp;share, shareID).Error; err != nil </span><span class="cov0" title="0">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                        return nil, ErrShareNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find share: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if share.UserID != userID </span><span class="cov0" title="0">{
+                return nil, ErrUnauthorized
+        }</span>
+
+        <span class="cov0" title="0">var activities []ShareActivity
+        if err := s.db.Find(&amp;activities, "share_id = ?", shareID).Error; err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get share activity: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return activities, nil</span>
+}
+
+// generateShareToken generates a unique share token
+func (s *Service) generateShareToken() (string, error) <span class="cov1" title="1">{
+        bytes := make([]byte, 16)
+        if _, err := rand.Read(bytes); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov1" title="1">return hex.EncodeToString(bytes), nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
