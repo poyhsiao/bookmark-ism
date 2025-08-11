@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// isDockerAvailable checks if Docker is available and running
+func isDockerAvailable() bool {
+	if _, err := exec.LookPath("docker"); err != nil {
+		return false
+	}
+
+	// Test if Docker daemon is running
+	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	return cmd.Run() == nil
+}
+
 // TestDockerBuildFix tests that the Docker build issue is resolved
 func TestDockerBuildFix(t *testing.T) {
 	tests := []struct {
@@ -82,16 +93,12 @@ func TestDockerBuildSyntax(t *testing.T) {
 
 	for _, dockerfile := range dockerfiles {
 		t.Run(dockerfile, func(t *testing.T) {
-			// Test Docker build syntax without actually building
-			cmd := exec.Command("docker", "build", "-f", dockerfile, "--dry-run", ".")
-			output, err := cmd.CombinedOutput()
-
-			// If docker command is not available, skip the test
-			if err != nil && strings.Contains(string(output), "command not found") {
-				t.Skip("Docker not available, skipping syntax test")
+			// Check if Docker is available and running
+			if !isDockerAvailable() {
+				t.Skip("Docker not available or not running, skipping syntax test")
 			}
 
-			// Check for common syntax errors
+			// Check for common syntax errors by reading the file
 			content, err := os.ReadFile(dockerfile)
 			if err != nil {
 				t.Fatalf("Failed to read %s: %v", dockerfile, err)
@@ -112,6 +119,16 @@ func TestDockerBuildSyntax(t *testing.T) {
 			fromCount := strings.Count(dockerfileContent, "FROM ")
 			if fromCount < 2 {
 				t.Errorf("%s should use multi-stage build (found %d FROM statements)", dockerfile, fromCount)
+			}
+
+			// Test actual Docker build syntax by attempting a build with a minimal context
+			// This will fail if there are syntax errors in the Dockerfile
+			cmd := exec.Command("docker", "build", "-f", dockerfile, "--no-cache", "--target", "builder", ".")
+			output, err := cmd.CombinedOutput()
+
+			// Check for syntax errors in the output
+			if err != nil && strings.Contains(string(output), "dockerfile parse error") {
+				t.Errorf("Dockerfile %s has syntax errors: %s", dockerfile, string(output))
 			}
 		})
 	}
