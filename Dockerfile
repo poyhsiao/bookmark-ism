@@ -43,7 +43,7 @@ RUN addgroup -g 1001 -S appgroup && \
 
 WORKDIR /build
 
-# Copy the binary from builder
+# Copy the binary from builder (fixed path)
 COPY --from=builder /build/main .
 
 # Copy configuration files if they exist (optional)

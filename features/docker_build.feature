@@ -1,8 +1,7 @@
-# Docker Build Feature
-Feature: Docker Build and Push
+Feature: Docker Build for Go Application
   As a developer
-  I want to build and push Docker images successfully
-  So that I can deploy my application to production
+  I want to build Docker images for my Go application
+  So that I can deploy it consistently across environments
 
   Background:
     Given I have a Go application with proper module structure
