@@ -2,7 +2,7 @@
 FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
 WORKDIR /app
@@ -10,18 +10,14 @@ WORKDIR /app
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
 
-# Download dependencies and verify module
-RUN go mod download && go mod verify
+# Download dependencies
+RUN go mod download
 
 # Copy the entire source code
 COPY . .
 
-# Verify and tidy dependencies
-RUN go mod tidy && \
-    go mod verify
-
 # Build the application with optimizations
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a -installsuffix cgo \
     -ldflags="-w -s" \
     -o main ./backend/cmd/api
