@@ -14,8 +14,8 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
-# Copy the entire source code
-COPY . .
+# Copy only necessary source code (backend directory and go files)
+COPY backend ./backend
 
 # Build the application with optimizations and cache mount
 RUN --mount=type=cache,target=/root/.cache/go-build \

@@ -109,3 +109,18 @@ DEBUG_*
 *.crx
 *.xpi
 web-ext-artifacts/
+
+# Security: Exclude sensitive files that might contain secrets
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+private/
+
+# Exclude cache directories
+.cache/
+.npm/
+.yarn/
+.go/

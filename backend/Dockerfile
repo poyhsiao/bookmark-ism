@@ -1,4 +1,4 @@
-# Build stage
+# Build stage - This Dockerfile should be used with root directory as build context
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
@@ -7,15 +7,15 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files from parent directory (build context should be root)
-COPY ../go.mod ../go.sum ./
+# Copy go mod files (build context is root directory)
+COPY go.mod go.sum ./
 
 # Download dependencies with cache mount for better performance
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
-# Copy entire source code from parent directory
-COPY .. .
+# Copy only the backend directory (not entire parent directory)
+COPY backend ./backend
 
 # Build the application with cache mount
 RUN --mount=type=cache,target=/root/.cache/go-build \

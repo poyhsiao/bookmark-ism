@@ -140,3 +140,56 @@ func (c *Client) EnsureBucketExists(ctx context.Context) error {
 6. `.github/workflows/cd.yml` - Production dockerfile usage
 
 This comprehensive fix addresses the root causes of the Docker build failure and implements best practices for Go application containerization.
+
+## Security Improvements (Updated)
+
+### 1. Fixed Insecure File Copying
+**Issue**: The backend/Dockerfile was copying the entire parent directory (`COPY .. .`) which could include sensitive files like `.git`, `node_modules`, secrets, and other unwanted content.
+
+**Fix**: Updated to copy only necessary files:
+```dockerfile
+# Before (INSECURE)
+COPY .. .
+
+# After (SECURE)
+COPY backend ./backend
+```
+
+### 2. Enhanced .dockerignore
+Added security-focused exclusions:
+```dockerignore
+# Security: Exclude sensitive files that might contain secrets
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+private/
+
+# Exclude cache directories
+.cache/
+.npm/
+.yarn/
+.go/
+```
+
+### 3. Principle of Least Privilege
+- Only copy the `backend/` directory instead of entire repository
+- Exclude development files, tests, and documentation from production images
+- Prevent accidental inclusion of sensitive configuration files
+
+### 4. Build Context Optimization
+**Files Updated**:
+- `Dockerfile` - Copy only `backend/` directory
+- `Dockerfile.prod` - Copy only `backend/` directory
+- `backend/Dockerfile` - Clarified build context requirements
+- `.dockerignore` - Enhanced security exclusions
+
+### Security Benefits:
+1. **Reduced Attack Surface**: Smaller images with only necessary files
+2. **Secret Protection**: Prevents accidental inclusion of sensitive files
+3. **Compliance**: Follows Docker security best practices from Context7
+4. **Audit Trail**: Clear separation of what gets included in images
+
+This comprehensive fix addresses the root causes of the Docker build failure and implements security best practices for Go application containerization.
