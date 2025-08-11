@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -7,21 +7,22 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files first for better caching
-COPY go.mod go.sum ./
+# Copy go mod files from parent directory (build context should be root)
+COPY ../go.mod ../go.sum ./
 
-# Download dependencies
-RUN go mod download && go mod verify
+# Download dependencies with cache mount for better performance
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
 
-# Copy entire source code
-COPY . .
+# Copy entire source code from parent directory
+COPY .. .
 
-# Verify the target directory exists and build
-RUN ls -la cmd/api/ && \
+# Build the application with cache mount
+RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o main ./cmd/api
+    -o main ./backend/cmd/api
 
 # Final stage
 FROM alpine:3.18
