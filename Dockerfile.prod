@@ -1,4 +1,6 @@
-# Production Dockerfile
+# syntax=docker/dockerfile:1
+
+# Production Dockerfile with enhanced security and debugging
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
@@ -18,14 +20,27 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY backend ./backend
 COPY config ./config
 
-# Build the application with optimizations and cache mount
+# Enhanced build with debugging and validation
 RUN --mount=type=cache,target=/root/.cache/go-build \
+    echo "=== Production Build Environment Debug ===" && \
+    echo "Go version: $(go version)" && \
+    echo "GOOS: $(go env GOOS), GOARCH: $(go env GOARCH)" && \
+    echo "Working directory: $(pwd)" && \
+    echo "Checking required directories..." && \
+    test -d backend/cmd/api || (echo "ERROR: backend/cmd/api directory not found" && exit 1) && \
+    test -f backend/cmd/api/main.go || (echo "ERROR: backend/cmd/api/main.go not found" && exit 1) && \
+    echo "All required files present" && \
+    echo "=== Starting Production Build ===" && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a -installsuffix cgo \
-    -ldflags="-w -s" \
-    -o main ./backend/cmd/api
+    -ldflags="-w -s -extldflags '-static'" \
+    -trimpath \
+    -o main ./backend/cmd/api && \
+    echo "=== Production Build Successful ===" && \
+    ls -la main && \
+    file main
 
-# Final stage - use distroless for security
+# Final stage - use distroless for maximum security
 FROM gcr.io/distroless/static:nonroot
 
 # Copy ca-certificates from builder
@@ -40,11 +55,15 @@ COPY --from=builder /app/main /
 # Copy configuration files
 COPY config /config
 
-# Use nonroot user
+# Use nonroot user for security
 USER nonroot:nonroot
 
 # Expose port
 EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["/main", "--health-check"] || exit 1
 
 # Run the application
 ENTRYPOINT ["/main"]
