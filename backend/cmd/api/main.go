@@ -20,6 +20,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// convertStorageConfig converts config.StorageConfig to storage.Config
+func convertStorageConfig(cfg config.StorageConfig) storage.Config {
+	return storage.Config{
+		Endpoint:        cfg.Endpoint,
+		AccessKeyID:     cfg.AccessKeyID,
+		SecretAccessKey: cfg.SecretAccessKey,
+		BucketName:      cfg.BucketName,
+		UseSSL:          cfg.UseSSL,
+	}
+}
+
 func main() {
 	// Initialize logger
 	logger := logger.NewLogger()
@@ -51,7 +62,7 @@ func main() {
 	}
 
 	// Initialize MinIO storage client
-	storageClient, err := storage.NewClient(cfg.Storage)
+	storageClient, err := storage.NewClient(convertStorageConfig(cfg.Storage))
 	if err != nil {
 		logger.Fatal("Failed to connect to MinIO", zap.Error(err))
 	}

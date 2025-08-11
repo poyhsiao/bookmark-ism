@@ -16,6 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Copy only necessary source code (backend directory and go files)
 COPY backend ./backend
+COPY config ./config
 
 # Build the application with optimized flags
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -36,7 +37,7 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 # Copy configuration files
-COPY --from=builder /app/config ./config
+COPY config ./config
 
 # Expose port
 EXPOSE 8080
