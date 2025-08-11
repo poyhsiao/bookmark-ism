@@ -7,17 +7,6 @@ import (
 	"testing"
 )
 
-// isDockerAvailable checks if Docker is available and running
-func isDockerAvailable() bool {
-	if _, err := exec.LookPath("docker"); err != nil {
-		return false
-	}
-
-	// Test if Docker daemon is running
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
-	return cmd.Run() == nil
-}
-
 // TestDockerBuildFix tests that the Docker build issue is resolved
 func TestDockerBuildFix(t *testing.T) {
 	tests := []struct {
@@ -94,8 +83,8 @@ func TestDockerBuildSyntax(t *testing.T) {
 	for _, dockerfile := range dockerfiles {
 		t.Run(dockerfile, func(t *testing.T) {
 			// Check if Docker is available and running
-			if !isDockerAvailable() {
-				t.Skip("Docker not available or not running, skipping syntax test")
+			if _, err := exec.LookPath("docker"); err != nil {
+				t.Skip("Docker not available, skipping syntax test")
 			}
 
 			// Check for common syntax errors by reading the file
