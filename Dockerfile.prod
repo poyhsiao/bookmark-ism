@@ -12,7 +12,7 @@ ENV CGO_ENABLED=0 \
     GOARCH=amd64
 
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
@@ -41,7 +41,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # Copy the binary from builder
-COPY --from=builder /app/main /
+COPY --from=builder /build/main /
 
 # Copy configuration files if they exist (optional)
 # Note: Configuration is typically provided via environment variables in production

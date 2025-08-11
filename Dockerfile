@@ -12,7 +12,7 @@ ENV CGO_ENABLED=0 \
     GOARCH=amd64
 
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
@@ -41,16 +41,16 @@ RUN apk --no-cache add ca-certificates wget curl tzdata
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
-WORKDIR /app
+WORKDIR /build
 
 # Copy the binary from builder
-COPY --from=builder /app/main .
+COPY --from=builder /build/main .
 
 # Copy configuration files if they exist (optional)
 # Note: Configuration is typically provided via environment variables
 
 # Change ownership to non-root user
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /build
 
 # Switch to non-root user
 USER appuser
