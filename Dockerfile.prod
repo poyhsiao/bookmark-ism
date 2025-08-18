@@ -21,14 +21,16 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
-# Copy only necessary source code (backend directory)
-COPY backend ./backend
+# Copy only necessary source files to optimize build context
+COPY backend/ ./backend/
+COPY config/ ./config/
 
 # Build the application with optimizations and cache mount
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go build \
+    -trimpath \
+    -ldflags="-w -s -extldflags '-static'" \
     -a -installsuffix cgo \
-    -ldflags="-w -s" \
     -o main ./backend/cmd/api
 
 # Final stage - use distroless for security and minimal size
@@ -48,6 +50,10 @@ USER nonroot:nonroot
 
 # Expose port
 EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["/main", "--health-check"] || exit 1
 
 # Run the application
 ENTRYPOINT ["/main"]
