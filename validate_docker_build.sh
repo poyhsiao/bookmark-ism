@@ -46,6 +46,15 @@ else
     exit 1
 fi
 
+# Verify Go modules (consolidated check - Docker build will also verify)
+print_status $YELLOW "🔍 Verifying Go modules..."
+if go mod verify >/dev/null 2>&1; then
+    print_status $GREEN "✅ Go modules verified successfully"
+else
+    print_status $RED "❌ Go module verification failed"
+    exit 1
+fi
+
 # Check if backend directory exists
 if [[ -d "backend" ]] && [[ -f "backend/cmd/api/main.go" ]]; then
     print_status $GREEN "✅ Backend structure validated"
@@ -117,12 +126,10 @@ echo ""
 print_status $YELLOW "📝 Summary of fixes applied:"
 echo "   • Fixed Go module resolution by copying entire source tree"
 echo "   • Set GO111MODULE=on explicitly for module mode"
-echo "   • Added go mod verify step to ensure module integrity"
+echo "   • Consolidated module verification (single check in validation)"
 echo "   • Optimized layer caching with go.mod/go.sum copy first"
 echo "   • Added build cache mounts for faster builds"
 echo "   • Used Alpine base for better compatibility"
-echo "   • Added proper build flags for static binary"
-echo "   • Included health check configuration"
-echo "   • Maintained non-root user for security"
+echo "   • Applied same fixes to both development and production Dockerfiles"
 echo ""
 print_status $GREEN "✅ Ready for GitHub Actions deployment!"
