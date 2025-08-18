@@ -19,31 +19,61 @@ import (
 )
 
 // Service handles automation operations
-type Service struct {
-	db                     *gorm.DB
-	httpClient             *http.Client
-	disableAsyncProcessing bool
+// AsyncExecutor defines the interface for executing async operations
+type AsyncExecutor interface {
+	Execute(fn func())
 }
 
-// NewService creates a new automation service
+// ProductionExecutor executes functions in goroutines
+type ProductionExecutor struct{}
+
+func (e *ProductionExecutor) Execute(fn func()) {
+	go fn()
+}
+
+// TestExecutor executes functions synchronously for testing
+type TestExecutor struct{}
+
+func (e *TestExecutor) Execute(fn func()) {
+	// Execute synchronously in tests for predictable behavior
+}
+
+type Service struct {
+	db         *gorm.DB
+	httpClient *http.Client
+	executor   AsyncExecutor
+}
+
+// NewService creates a new automation service with production async executor
 func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		disableAsyncProcessing: false,
+		executor: &ProductionExecutor{},
 	}
 }
 
-// NewServiceForTesting creates a new automation service for testing with async processing disabled
+// NewServiceForTesting creates a new automation service with test executor
 func NewServiceForTesting(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		disableAsyncProcessing: true,
+		executor: &TestExecutor{},
+	}
+}
+
+// NewServiceWithExecutor creates a service with a custom executor
+func NewServiceWithExecutor(db *gorm.DB, executor AsyncExecutor) *Service {
+	return &Service{
+		db: db,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		executor: executor,
 	}
 }
 
@@ -157,10 +187,10 @@ func (s *Service) TriggerWebhook(ctx context.Context, event WebhookEvent, userID
 			continue // Log error but continue with other endpoints
 		}
 
-		// Deliver webhook asynchronously (unless disabled for testing)
-		if !s.disableAsyncProcessing {
-			go s.deliverWebhook(ctx, &endpoint, delivery, payload)
-		}
+		// Deliver webhook asynchronously using the configured executor
+		s.executor.Execute(func() {
+			s.deliverWebhook(ctx, &endpoint, delivery, payload)
+		})
 	}
 
 	return nil
@@ -282,10 +312,10 @@ func (s *Service) CreateBulkOperation(userID string, req BulkOperationRequest) (
 		return nil, fmt.Errorf("failed to create bulk operation: %w", err)
 	}
 
-	// Start processing asynchronously (unless disabled for testing)
-	if !s.disableAsyncProcessing {
-		go s.processBulkOperation(operation)
-	}
+	// Start processing asynchronously using the configured executor
+	s.executor.Execute(func() {
+		s.processBulkOperation(operation)
+	})
 
 	return operation, nil
 }
@@ -329,10 +359,10 @@ func (s *Service) CreateBackupJob(userID string, req BackupRequest) (*BackupJob,
 		return nil, fmt.Errorf("failed to create backup job: %w", err)
 	}
 
-	// Start backup process asynchronously (unless disabled for testing)
-	if !s.disableAsyncProcessing {
-		go s.processBackupJob(job)
-	}
+	// Start backup process asynchronously using the configured executor
+	s.executor.Execute(func() {
+		s.processBackupJob(job)
+	})
 
 	return job, nil
 }

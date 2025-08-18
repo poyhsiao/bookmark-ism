@@ -13,45 +13,17 @@ import (
 
 // AutomationServiceTestSuite defines the test suite for automation service
 type AutomationServiceTestSuite struct {
-	suite.Suite
-	db      *gorm.DB
-	service *Service
-	userID  string
-}
-
-// SetupSuite sets up the test suite
-func (suite *AutomationServiceTestSuite) SetupSuite() {
-	suite.userID = "test-user-123"
-}
-
-// TearDownTest cleans up after each test
-func (suite *AutomationServiceTestSuite) TearDownTest() {
-	if suite.db != nil {
-		sqlDB, _ := suite.db.DB()
-		sqlDB.Close()
-	}
+	AutomationTestBase
 }
 
 // SetupTest sets up each test with a fresh database
 func (suite *AutomationServiceTestSuite) SetupTest() {
-	// Create a new in-memory SQLite database for each test
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	suite.Require().NoError(err)
+	suite.SetupAutomationTest()
+}
 
-	// Auto-migrate the schema
-	err = db.AutoMigrate(
-		&WebhookEndpoint{},
-		&WebhookDelivery{},
-		&RSSFeed{},
-		&BulkOperation{},
-		&BackupJob{},
-		&APIIntegration{},
-		&AutomationRule{},
-	)
-	suite.Require().NoError(err)
-
-	suite.db = db
-	suite.service = NewServiceForTesting(db)
+// TearDownTest cleans up after each test
+func (suite *AutomationServiceTestSuite) TearDownTest() {
+	suite.TearDownAutomationTest()
 }
 
 // Webhook Endpoint Tests
@@ -69,7 +41,7 @@ func (suite *AutomationServiceTestSuite) TestCreateWebhookEndpoint_Success() {
 	}
 
 	// When: Creating a webhook endpoint
-	endpoint, err := suite.service.CreateWebhookEndpoint(suite.userID, req)
+	endpoint, err := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req)
 
 	// Then: The endpoint should be created successfully
 	suite.NoError(err)
@@ -81,7 +53,7 @@ func (suite *AutomationServiceTestSuite) TestCreateWebhookEndpoint_Success() {
 	suite.Equal(3, endpoint.RetryCount)
 	suite.Equal(30, endpoint.Timeout)
 	suite.NotEmpty(endpoint.Secret)
-	suite.Equal(suite.userID, endpoint.UserID)
+	suite.Equal(suite.GetTestUserID(), endpoint.UserID)
 }
 
 func (suite *AutomationServiceTestSuite) TestCreateWebhookEndpoint_DefaultValues() {
@@ -93,7 +65,7 @@ func (suite *AutomationServiceTestSuite) TestCreateWebhookEndpoint_DefaultValues
 	}
 
 	// When: Creating a webhook endpoint
-	endpoint, err := suite.service.CreateWebhookEndpoint(suite.userID, req)
+	endpoint, err := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req)
 
 	// Then: Default values should be applied
 	suite.NoError(err)
@@ -115,11 +87,11 @@ func (suite *AutomationServiceTestSuite) TestGetWebhookEndpoints_Success() {
 		Events: []string{"bookmark.updated"},
 	}
 
-	endpoint1, _ := suite.service.CreateWebhookEndpoint(suite.userID, req1)
-	endpoint2, _ := suite.service.CreateWebhookEndpoint(suite.userID, req2)
+	endpoint1, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req1)
+	endpoint2, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req2)
 
 	// When: Getting webhook endpoints
-	endpoints, err := suite.service.GetWebhookEndpoints(suite.userID)
+	endpoints, err := suite.GetTestService().GetWebhookEndpoints(suite.GetTestUserID())
 
 	// Then: All endpoints should be returned
 	suite.NoError(err)
@@ -138,7 +110,7 @@ func (suite *AutomationServiceTestSuite) TestUpdateWebhookEndpoint_Success() {
 		URL:    "https://example.com/original",
 		Events: []string{"bookmark.created"},
 	}
-	endpoint, _ := suite.service.CreateWebhookEndpoint(suite.userID, createReq)
+	endpoint, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), createReq)
 
 	// When: Updating the webhook endpoint
 	updateReq := WebhookEndpointRequest{
@@ -147,7 +119,7 @@ func (suite *AutomationServiceTestSuite) TestUpdateWebhookEndpoint_Success() {
 		Events: []string{"bookmark.created", "bookmark.updated"},
 		Active: false,
 	}
-	updatedEndpoint, err := suite.service.UpdateWebhookEndpoint(suite.userID, endpoint.ID, updateReq)
+	updatedEndpoint, err := suite.GetTestService().UpdateWebhookEndpoint(suite.GetTestUserID(), endpoint.ID, updateReq)
 
 	// Then: The endpoint should be updated
 	suite.NoError(err)
@@ -164,16 +136,16 @@ func (suite *AutomationServiceTestSuite) TestDeleteWebhookEndpoint_Success() {
 		URL:    "https://example.com/webhook",
 		Events: []string{"bookmark.created"},
 	}
-	endpoint, _ := suite.service.CreateWebhookEndpoint(suite.userID, req)
+	endpoint, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req)
 
 	// When: Deleting the webhook endpoint
-	err := suite.service.DeleteWebhookEndpoint(suite.userID, endpoint.ID)
+	err := suite.GetTestService().DeleteWebhookEndpoint(suite.GetTestUserID(), endpoint.ID)
 
 	// Then: The endpoint should be deleted
 	suite.NoError(err)
 
 	// Verify endpoint is deleted
-	endpoints, _ := suite.service.GetWebhookEndpoints(suite.userID)
+	endpoints, _ := suite.GetTestService().GetWebhookEndpoints(suite.GetTestUserID())
 	suite.Len(endpoints, 0)
 }
 
@@ -185,7 +157,7 @@ func (suite *AutomationServiceTestSuite) TestTriggerWebhook_Success() {
 		Events: []string{"bookmark.created"},
 		Active: true,
 	}
-	endpoint, _ := suite.service.CreateWebhookEndpoint(suite.userID, req)
+	endpoint, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), req)
 
 	// When: Triggering a webhook
 	testData := map[string]interface{}{
@@ -195,14 +167,14 @@ func (suite *AutomationServiceTestSuite) TestTriggerWebhook_Success() {
 	}
 
 	ctx := context.Background()
-	err := suite.service.TriggerWebhook(ctx, WebhookEventBookmarkCreated, suite.userID, testData)
+	err := suite.GetTestService().TriggerWebhook(ctx, WebhookEventBookmarkCreated, suite.GetTestUserID(), testData)
 
 	// Then: The webhook should be triggered without error
 	suite.NoError(err)
 
 	// Verify delivery record is created
 	time.Sleep(100 * time.Millisecond) // Allow time for async processing
-	deliveries, _ := suite.service.GetWebhookDeliveries(suite.userID, endpoint.ID)
+	deliveries, _ := suite.GetTestService().GetWebhookDeliveries(suite.GetTestUserID(), endpoint.ID)
 	suite.Len(deliveries, 1)
 	suite.Equal("pending", deliveries[0].Status)
 	suite.Equal(WebhookEventBookmarkCreated, deliveries[0].Event)
@@ -226,7 +198,7 @@ func (suite *AutomationServiceTestSuite) TestCreateRSSFeed_Success() {
 	}
 
 	// When: Creating an RSS feed
-	feed, err := suite.service.CreateRSSFeed(suite.userID, req)
+	feed, err := suite.GetTestService().CreateRSSFeed(suite.GetTestUserID(), req)
 
 	// Then: The feed should be created successfully
 	suite.NoError(err)
@@ -253,7 +225,7 @@ func (suite *AutomationServiceTestSuite) TestCreateRSSFeed_DefaultValues() {
 	}
 
 	// When: Creating an RSS feed
-	feed, err := suite.service.CreateRSSFeed(suite.userID, req)
+	feed, err := suite.GetTestService().CreateRSSFeed(suite.GetTestUserID(), req)
 
 	// Then: Default values should be applied
 	suite.NoError(err)
@@ -269,10 +241,10 @@ func (suite *AutomationServiceTestSuite) TestGetRSSFeedByPublicKey_Success() {
 		Title: "Test Feed",
 		Link:  "https://example.com",
 	}
-	feed, _ := suite.service.CreateRSSFeed(suite.userID, req)
+	feed, _ := suite.GetTestService().CreateRSSFeed(suite.GetTestUserID(), req)
 
 	// When: Getting the RSS feed by public key
-	retrievedFeed, err := suite.service.GetRSSFeedByPublicKey(feed.PublicKey)
+	retrievedFeed, err := suite.GetTestService().GetRSSFeedByPublicKey(feed.PublicKey)
 
 	// Then: The feed should be retrieved successfully
 	suite.NoError(err)
@@ -292,10 +264,10 @@ func (suite *AutomationServiceTestSuite) TestGenerateRSSContent_Success() {
 		Category:    "Technology",
 		TTL:         60,
 	}
-	feed, _ := suite.service.CreateRSSFeed(suite.userID, req)
+	feed, _ := suite.GetTestService().CreateRSSFeed(suite.GetTestUserID(), req)
 
 	// When: Generating RSS content
-	content, err := suite.service.GenerateRSSContent(feed)
+	content, err := suite.GetTestService().GenerateRSSContent(feed)
 
 	// Then: Valid RSS XML should be generated
 	suite.NoError(err)
@@ -321,7 +293,7 @@ func (suite *AutomationServiceTestSuite) TestCreateBulkOperation_Success() {
 	}
 
 	// When: Creating a bulk operation
-	operation, err := suite.service.CreateBulkOperation(suite.userID, req)
+	operation, err := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), req)
 
 	// Then: The operation should be created successfully
 	suite.NoError(err)
@@ -330,7 +302,7 @@ func (suite *AutomationServiceTestSuite) TestCreateBulkOperation_Success() {
 	// Status could be "pending" or "running" due to async processing
 	suite.Contains([]string{"pending", "running"}, operation.Status)
 	suite.Equal(InterfaceMap(req.Parameters), operation.Parameters)
-	suite.Equal(suite.userID, operation.UserID)
+	suite.Equal(suite.GetTestUserID(), operation.UserID)
 }
 
 func (suite *AutomationServiceTestSuite) TestGetBulkOperations_Success() {
@@ -338,11 +310,11 @@ func (suite *AutomationServiceTestSuite) TestGetBulkOperations_Success() {
 	req1 := BulkOperationRequest{Type: "import", Parameters: map[string]interface{}{"source": "chrome"}}
 	req2 := BulkOperationRequest{Type: "export", Parameters: map[string]interface{}{"format": "json"}}
 
-	operation1, _ := suite.service.CreateBulkOperation(suite.userID, req1)
-	operation2, _ := suite.service.CreateBulkOperation(suite.userID, req2)
+	operation1, _ := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), req1)
+	operation2, _ := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), req2)
 
 	// When: Getting bulk operations
-	operations, err := suite.service.GetBulkOperations(suite.userID)
+	operations, err := suite.GetTestService().GetBulkOperations(suite.GetTestUserID())
 
 	// Then: All operations should be returned
 	suite.NoError(err)
@@ -356,16 +328,16 @@ func (suite *AutomationServiceTestSuite) TestGetBulkOperations_Success() {
 func (suite *AutomationServiceTestSuite) TestCancelBulkOperation_Success() {
 	// Given: A pending bulk operation
 	req := BulkOperationRequest{Type: "import", Parameters: map[string]interface{}{}}
-	operation, _ := suite.service.CreateBulkOperation(suite.userID, req)
+	operation, _ := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), req)
 
 	// When: Cancelling the bulk operation
-	err := suite.service.CancelBulkOperation(suite.userID, operation.ID)
+	err := suite.GetTestService().CancelBulkOperation(suite.GetTestUserID(), operation.ID)
 
 	// Then: The operation should be cancelled
 	suite.NoError(err)
 
 	// Verify operation status is updated
-	updatedOperation, _ := suite.service.GetBulkOperation(suite.userID, operation.ID)
+	updatedOperation, _ := suite.GetTestService().GetBulkOperation(suite.GetTestUserID(), operation.ID)
 	suite.Equal("cancelled", updatedOperation.Status)
 	suite.NotNil(updatedOperation.CompletedAt)
 }
@@ -373,14 +345,14 @@ func (suite *AutomationServiceTestSuite) TestCancelBulkOperation_Success() {
 func (suite *AutomationServiceTestSuite) TestCancelBulkOperation_AlreadyCompleted() {
 	// Given: A completed bulk operation
 	req := BulkOperationRequest{Type: "import", Parameters: map[string]interface{}{}}
-	operation, _ := suite.service.CreateBulkOperation(suite.userID, req)
+	operation, _ := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), req)
 
 	// Manually set status to completed
 	operation.Status = "completed"
 	suite.db.Save(operation)
 
 	// When: Attempting to cancel the completed operation
-	err := suite.service.CancelBulkOperation(suite.userID, operation.ID)
+	err := suite.GetTestService().CancelBulkOperation(suite.GetTestUserID(), operation.ID)
 
 	// Then: An error should be returned
 	suite.Error(err)
@@ -398,7 +370,7 @@ func (suite *AutomationServiceTestSuite) TestCreateBackupJob_Success() {
 	}
 
 	// When: Creating a backup job
-	job, err := suite.service.CreateBackupJob(suite.userID, req)
+	job, err := suite.GetTestService().CreateBackupJob(suite.GetTestUserID(), req)
 
 	// Then: The job should be created successfully
 	suite.NoError(err)
@@ -409,7 +381,7 @@ func (suite *AutomationServiceTestSuite) TestCreateBackupJob_Success() {
 	suite.Equal(req.Compression, job.Compression)
 	suite.True(job.Encrypted)
 	suite.Equal(30, job.RetentionDays) // Default retention
-	suite.Equal(suite.userID, job.UserID)
+	suite.Equal(suite.GetTestUserID(), job.UserID)
 }
 
 func (suite *AutomationServiceTestSuite) TestCreateBackupJob_DefaultCompression() {
@@ -419,7 +391,7 @@ func (suite *AutomationServiceTestSuite) TestCreateBackupJob_DefaultCompression(
 	}
 
 	// When: Creating a backup job
-	job, err := suite.service.CreateBackupJob(suite.userID, req)
+	job, err := suite.GetTestService().CreateBackupJob(suite.GetTestUserID(), req)
 
 	// Then: Default compression should be applied
 	suite.NoError(err)
@@ -431,11 +403,11 @@ func (suite *AutomationServiceTestSuite) TestGetBackupJobs_Success() {
 	req1 := BackupRequest{Type: "full"}
 	req2 := BackupRequest{Type: "incremental"}
 
-	job1, _ := suite.service.CreateBackupJob(suite.userID, req1)
-	job2, _ := suite.service.CreateBackupJob(suite.userID, req2)
+	job1, _ := suite.GetTestService().CreateBackupJob(suite.GetTestUserID(), req1)
+	job2, _ := suite.GetTestService().CreateBackupJob(suite.GetTestUserID(), req2)
 
 	// When: Getting backup jobs
-	jobs, err := suite.service.GetBackupJobs(suite.userID)
+	jobs, err := suite.GetTestService().GetBackupJobs(suite.GetTestUserID())
 
 	// Then: All jobs should be returned
 	suite.NoError(err)
@@ -465,7 +437,7 @@ func (suite *AutomationServiceTestSuite) TestCreateAPIIntegration_Success() {
 	}
 
 	// When: Creating an API integration
-	integration, err := suite.service.CreateAPIIntegration(suite.userID, req)
+	integration, err := suite.GetTestService().CreateAPIIntegration(suite.GetTestUserID(), req)
 
 	// Then: The integration should be created successfully
 	suite.NoError(err)
@@ -490,10 +462,10 @@ func (suite *AutomationServiceTestSuite) TestTriggerSync_Success() {
 		BaseURL: "https://api.example.com",
 		APIKey:  "test-key",
 	}
-	integration, _ := suite.service.CreateAPIIntegration(suite.userID, req)
+	integration, _ := suite.GetTestService().CreateAPIIntegration(suite.GetTestUserID(), req)
 
 	// When: Triggering a sync
-	result, err := suite.service.TriggerSync(suite.userID, integration.ID)
+	result, err := suite.GetTestService().TriggerSync(suite.GetTestUserID(), integration.ID)
 
 	// Then: The sync should be triggered successfully
 	suite.NoError(err)
@@ -502,7 +474,7 @@ func (suite *AutomationServiceTestSuite) TestTriggerSync_Success() {
 	suite.Contains(result, "items_synced")
 
 	// Verify last sync time is updated
-	updatedIntegration, _ := suite.service.GetAPIIntegrations(suite.userID)
+	updatedIntegration, _ := suite.GetTestService().GetAPIIntegrations(suite.GetTestUserID())
 	suite.NotNil(updatedIntegration[0].LastSync)
 }
 
@@ -514,10 +486,10 @@ func (suite *AutomationServiceTestSuite) TestTestIntegration_Success() {
 		BaseURL: "https://api.example.com",
 		APIKey:  "test-key",
 	}
-	integration, _ := suite.service.CreateAPIIntegration(suite.userID, req)
+	integration, _ := suite.GetTestService().CreateAPIIntegration(suite.GetTestUserID(), req)
 
 	// When: Testing the integration
-	result, err := suite.service.TestIntegration(suite.userID, integration.ID)
+	result, err := suite.GetTestService().TestIntegration(suite.GetTestUserID(), integration.ID)
 
 	// Then: The test should be successful
 	suite.NoError(err)
@@ -545,7 +517,7 @@ func (suite *AutomationServiceTestSuite) TestCreateAutomationRule_Success() {
 	}
 
 	// When: Creating an automation rule
-	rule, err := suite.service.CreateAutomationRule(suite.userID, req)
+	rule, err := suite.GetTestService().CreateAutomationRule(suite.GetTestUserID(), req)
 
 	// Then: The rule should be created successfully
 	suite.NoError(err)
@@ -569,10 +541,10 @@ func (suite *AutomationServiceTestSuite) TestExecuteAutomationRule_Success() {
 			"add_tags": []string{"auto"},
 		},
 	}
-	rule, _ := suite.service.CreateAutomationRule(suite.userID, req)
+	rule, _ := suite.GetTestService().CreateAutomationRule(suite.GetTestUserID(), req)
 
 	// When: Executing the automation rule
-	result, err := suite.service.ExecuteAutomationRule(suite.userID, rule.ID)
+	result, err := suite.GetTestService().ExecuteAutomationRule(suite.GetTestUserID(), rule.ID)
 
 	// Then: The rule should be executed successfully
 	suite.NoError(err)
@@ -581,7 +553,7 @@ func (suite *AutomationServiceTestSuite) TestExecuteAutomationRule_Success() {
 	suite.Contains(result, "actions_performed")
 
 	// Verify execution count is updated
-	updatedRule, _ := suite.service.GetAutomationRules(suite.userID)
+	updatedRule, _ := suite.GetTestService().GetAutomationRules(suite.GetTestUserID())
 	suite.Equal(1, updatedRule[0].ExecutionCount)
 	suite.NotNil(updatedRule[0].LastExecuted)
 }
@@ -590,7 +562,7 @@ func (suite *AutomationServiceTestSuite) TestExecuteAutomationRule_Success() {
 
 func (suite *AutomationServiceTestSuite) TestGenerateSecret_Success() {
 	// When: Generating a secret
-	secret, err := suite.service.generateSecret()
+	secret, err := suite.GetTestService().generateSecret()
 
 	// Then: A valid secret should be generated
 	suite.NoError(err)
@@ -600,7 +572,7 @@ func (suite *AutomationServiceTestSuite) TestGenerateSecret_Success() {
 
 func (suite *AutomationServiceTestSuite) TestGeneratePublicKey_Success() {
 	// When: Generating a public key
-	publicKey, err := suite.service.generatePublicKey()
+	publicKey, err := suite.GetTestService().generatePublicKey()
 
 	// Then: A valid public key should be generated
 	suite.NoError(err)
@@ -613,8 +585,8 @@ func (suite *AutomationServiceTestSuite) TestIsEventSubscribed_Success() {
 	events := StringSlice{"bookmark.created", "bookmark.updated", "collection.created"}
 
 	// When: Checking if events are subscribed
-	isSubscribed1 := suite.service.isEventSubscribed(events, "bookmark.created")
-	isSubscribed2 := suite.service.isEventSubscribed(events, "bookmark.deleted")
+	isSubscribed1 := suite.GetTestService().isEventSubscribed(events, "bookmark.created")
+	isSubscribed2 := suite.GetTestService().isEventSubscribed(events, "bookmark.deleted")
 
 	// Then: Correct subscription status should be returned
 	suite.True(isSubscribed1)

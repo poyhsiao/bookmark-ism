@@ -38,8 +38,14 @@ func (suite *SocialMetricsServiceTestSuite) TearDownTest() {
 func (suite *SocialMetricsServiceTestSuite) TestGetSocialMetrics_Success() {
 	bookmarkID := uint(1)
 
-	// Mock finding social metrics
-	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Return(&gorm.DB{Error: nil})
+	// Mock finding social metrics - populate the struct with expected data
+	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Run(func(args mock.Arguments) {
+		metrics := args.Get(0).(*SocialMetrics)
+		metrics.ID = 1
+		metrics.BookmarkID = bookmarkID
+		metrics.TotalViews = 10
+		metrics.TotalClicks = 5
+	}).Return(&gorm.DB{Error: nil})
 
 	metrics, err := suite.service.GetSocialMetrics(suite.ctx, bookmarkID)
 
@@ -88,8 +94,12 @@ func (suite *SocialMetricsServiceTestSuite) TestUpdateSocialMetrics_UpdateExisti
 	bookmarkID := uint(1)
 	actionType := "click"
 
-	// Mock finding existing metrics (will update)
-	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Return(&gorm.DB{Error: nil})
+	// Mock finding existing metrics (will update) - need to set ID to simulate existing record
+	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Run(func(args mock.Arguments) {
+		metrics := args.Get(0).(*SocialMetrics)
+		metrics.ID = 1 // Set ID to simulate existing record
+		metrics.BookmarkID = bookmarkID
+	}).Return(&gorm.DB{Error: nil})
 	suite.mockDB.On("Save", mock.AnythingOfType("*community.SocialMetrics")).Return(&gorm.DB{Error: nil})
 
 	err := suite.service.UpdateSocialMetrics(suite.ctx, bookmarkID, actionType)

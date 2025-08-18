@@ -43,11 +43,11 @@ func (suite *TrendingServiceTestSuite) TestGetTrendingBookmarksInternal_Success(
 		MinScore:   0.5,
 	}
 
-	// Mock finding trending bookmarks
-	suite.mockDB.On("Where", "time_window = ?", "daily").Return(suite.mockDB)
-	suite.mockDB.On("Where", "trending_score >= ?", 0.5).Return(suite.mockDB)
-	suite.mockDB.On("Order", mock.Anything).Return(suite.mockDB)
-	suite.mockDB.On("Limit", mock.Anything).Return(suite.mockDB)
+	// Mock finding trending bookmarks - GORM passes parameters as interface{} slice
+	suite.mockDB.On("Where", "time_window = ?", mock.Anything).Return(suite.mockDB)
+	suite.mockDB.On("Where", "trending_score >= ?", mock.Anything).Return(suite.mockDB)
+	suite.mockDB.On("Order", "trending_score DESC").Return(suite.mockDB)
+	suite.mockDB.On("Limit", 20).Return(suite.mockDB)
 	suite.mockDB.On("Find", mock.AnythingOfType("*[]community.TrendingBookmark"), mock.Anything).Return(&gorm.DB{Error: nil})
 
 	trending, err := suite.service.GetTrendingBookmarksInternal(suite.ctx, request)

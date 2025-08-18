@@ -17,64 +17,25 @@ import (
 
 // AutomationHandlerTestSuite defines the test suite for automation handlers
 type AutomationHandlerTestSuite struct {
-	suite.Suite
-	db      *gorm.DB
-	service *Service
+	AutomationTestBase
 	handler *Handler
 	router  *gin.Engine
-	userID  string
 }
 
-// SetupSuite sets up the test suite
-func (suite *AutomationHandlerTestSuite) SetupSuite() {
-	suite.userID = "test-user-123"
-
-	// Setup Gin router
-	gin.SetMode(gin.TestMode)
-}
-
-// TearDownTest cleans up after each test
-func (suite *AutomationHandlerTestSuite) TearDownTest() {
-	if suite.db != nil {
-		sqlDB, _ := suite.db.DB()
-		sqlDB.Close()
-	}
-}
-
-// SetupTest sets up each test with a fresh database
+// SetupTest sets up each test with a fresh database and router
 func (suite *AutomationHandlerTestSuite) SetupTest() {
-	// Create a new in-memory SQLite database for each test
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	suite.Require().NoError(err)
-
-	// Auto-migrate the schema
-	err = db.AutoMigrate(
-		&WebhookEndpoint{},
-		&WebhookDelivery{},
-		&RSSFeed{},
-		&BulkOperation{},
-		&BackupJob{},
-		&APIIntegration{},
-		&AutomationRule{},
-	)
-	suite.Require().NoError(err)
-
-	suite.db = db
-	suite.service = NewServiceForTesting(db)
-	suite.handler = NewHandler(suite.service)
-
-	// Setup Gin router for each test
-	suite.router = gin.New()
-
-	// Add middleware to set user_id
-	suite.router.Use(func(c *gin.Context) {
-		c.Set("user_id", suite.userID)
-		c.Next()
-	})
+	suite.SetupAutomationTest()
+	suite.handler = NewHandler(suite.GetTestService())
+	suite.router = suite.SetupGinRouter()
 
 	// Register routes
 	api := suite.router.Group("/api/v1")
 	suite.handler.RegisterRoutes(api)
+}
+
+// TearDownTest cleans up after each test
+func (suite *AutomationHandlerTestSuite) TearDownTest() {
+	suite.TearDownAutomationTest()
 }
 
 // Helper method to make HTTP requests
@@ -148,7 +109,7 @@ func (suite *AutomationHandlerTestSuite) TestGetWebhookEndpoints_Success() {
 		URL:    "https://example.com/webhook",
 		Events: []string{"bookmark.created"},
 	}
-	suite.service.CreateWebhookEndpoint(suite.userID, reqBody)
+	suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), reqBody)
 
 	// When: Making a GET request to retrieve webhook endpoints
 	w := suite.makeRequest("GET", "/api/v1/automation/webhooks", nil)
@@ -172,7 +133,7 @@ func (suite *AutomationHandlerTestSuite) TestUpdateWebhookEndpoint_Success() {
 		URL:    "https://example.com/original",
 		Events: []string{"bookmark.created"},
 	}
-	endpoint, _ := suite.service.CreateWebhookEndpoint(suite.userID, createReq)
+	endpoint, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), createReq)
 
 	updateReq := WebhookEndpointRequest{
 		Name:   "Updated Webhook",
@@ -203,7 +164,7 @@ func (suite *AutomationHandlerTestSuite) TestDeleteWebhookEndpoint_Success() {
 		URL:    "https://example.com/webhook",
 		Events: []string{"bookmark.created"},
 	}
-	endpoint, _ := suite.service.CreateWebhookEndpoint(suite.userID, reqBody)
+	endpoint, _ := suite.GetTestService().CreateWebhookEndpoint(suite.GetTestUserID(), reqBody)
 
 	// When: Making a DELETE request to delete the webhook endpoint
 	url := "/api/v1/automation/webhooks/" + strconv.Itoa(int(endpoint.ID))
@@ -255,7 +216,7 @@ func (suite *AutomationHandlerTestSuite) TestGetPublicRSSFeed_Success() {
 		Title: "Test Feed",
 		Link:  "https://example.com",
 	}
-	feed, _ := suite.service.CreateRSSFeed(suite.userID, reqBody)
+	feed, _ := suite.GetTestService().CreateRSSFeed(suite.GetTestUserID(), reqBody)
 
 	// When: Making a GET request to retrieve the public RSS feed
 	url := "/api/v1/rss/" + feed.PublicKey
@@ -312,7 +273,7 @@ func (suite *AutomationHandlerTestSuite) TestGetBulkOperations_Success() {
 		Type:       "export",
 		Parameters: map[string]interface{}{"format": "json"},
 	}
-	suite.service.CreateBulkOperation(suite.userID, reqBody)
+	suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), reqBody)
 
 	// When: Making a GET request to retrieve bulk operations
 	w := suite.makeRequest("GET", "/api/v1/automation/bulk", nil)
@@ -335,7 +296,7 @@ func (suite *AutomationHandlerTestSuite) TestGetBulkOperation_Success() {
 		Type:       "import",
 		Parameters: map[string]interface{}{"source": "firefox"},
 	}
-	operation, _ := suite.service.CreateBulkOperation(suite.userID, reqBody)
+	operation, _ := suite.GetTestService().CreateBulkOperation(suite.GetTestUserID(), reqBody)
 
 	// When: Making a GET request to retrieve the specific bulk operation
 	url := "/api/v1/automation/bulk/" + strconv.Itoa(int(operation.ID))
@@ -378,7 +339,7 @@ func (suite *AutomationHandlerTestSuite) TestCreateBackupJob_Success() {
 func (suite *AutomationHandlerTestSuite) TestGetBackupJobs_Success() {
 	// Given: An existing backup job
 	reqBody := BackupRequest{Type: "incremental"}
-	suite.service.CreateBackupJob(suite.userID, reqBody)
+	suite.GetTestService().CreateBackupJob(suite.GetTestUserID(), reqBody)
 
 	// When: Making a GET request to retrieve backup jobs
 	w := suite.makeRequest("GET", "/api/v1/automation/backup", nil)
@@ -434,7 +395,7 @@ func (suite *AutomationHandlerTestSuite) TestTriggerSync_Success() {
 		BaseURL: "https://api.example.com",
 		APIKey:  "test-key",
 	}
-	integration, _ := suite.service.CreateAPIIntegration(suite.userID, reqBody)
+	integration, _ := suite.GetTestService().CreateAPIIntegration(suite.GetTestUserID(), reqBody)
 
 	// When: Making a POST request to trigger sync
 	url := "/api/v1/automation/integrations/" + strconv.Itoa(int(integration.ID)) + "/sync"
@@ -460,7 +421,7 @@ func (suite *AutomationHandlerTestSuite) TestTestIntegration_Success() {
 		BaseURL: "https://api.example.com",
 		APIKey:  "test-key",
 	}
-	integration, _ := suite.service.CreateAPIIntegration(suite.userID, reqBody)
+	integration, _ := suite.GetTestService().CreateAPIIntegration(suite.GetTestUserID(), reqBody)
 
 	// When: Making a POST request to test integration
 	url := "/api/v1/automation/integrations/" + strconv.Itoa(int(integration.ID)) + "/test"
@@ -518,7 +479,7 @@ func (suite *AutomationHandlerTestSuite) TestExecuteAutomationRule_Success() {
 			"add_tags": []string{"auto"},
 		},
 	}
-	rule, _ := suite.service.CreateAutomationRule(suite.userID, reqBody)
+	rule, _ := suite.GetTestService().CreateAutomationRule(suite.GetTestUserID(), reqBody)
 
 	// When: Making a POST request to execute the rule
 	url := "/api/v1/automation/rules/" + strconv.Itoa(int(rule.ID)) + "/execute"

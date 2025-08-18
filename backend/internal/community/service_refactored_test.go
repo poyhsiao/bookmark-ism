@@ -71,8 +71,7 @@ func (suite *RefactoredServiceTestSuite) TestFollowUser_DelegatesToUserRelations
 	// Mock the database calls that UserRelationshipService will make
 	suite.mockDB.On("First", mock.AnythingOfType("*community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
 	suite.mockDB.On("Create", mock.AnythingOfType("*community.UserFollow")).Return(&gorm.DB{Error: nil})
-	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123"}).Return(nil)
-	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-456"}).Return(nil)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123", "user_stats:user-456"}).Return(nil)
 
 	err := suite.service.FollowUser(suite.ctx, followerID, request)
 
