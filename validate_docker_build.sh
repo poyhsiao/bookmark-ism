@@ -74,8 +74,11 @@ if docker build -f Dockerfile.prod -t "$TEST_TAG" . --progress=plain; then
 
         # Clean up test image
         print_status $YELLOW "🧹 Cleaning up test image..."
-        docker rmi "$TEST_TAG" >/dev/null 2>&1
-        print_status $GREEN "✅ Cleanup completed"
+        if docker rmi "$TEST_TAG" >/dev/null 2>&1; then
+            print_status $GREEN "✅ Cleanup completed"
+        else
+            print_status $RED "❌ Cleanup failed: could not remove test image '$TEST_TAG'"
+        fi
 
     else
         print_status $RED "❌ Docker image was not created properly"
