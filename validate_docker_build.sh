@@ -39,10 +39,10 @@ print_status $GREEN "✅ Project structure validated"
 
 # Validate Dockerfile syntax
 print_status $YELLOW "🔍 Validating Dockerfile syntax..."
-if docker build --check -f Dockerfile.prod . 2>/dev/null; then
+if docker build --check -f Dockerfile.prod .; then
     print_status $GREEN "✅ Dockerfile syntax is valid"
 else
-    print_status $YELLOW "⚠️  Dockerfile check not supported (older Docker version)"
+    print_status $RED "❌ Dockerfile syntax validation failed. See error details above."
 fi
 
 # Test build (dry run with --dry-run if supported, otherwise actual build)
