@@ -146,7 +146,7 @@ sed -i.tmp '/# Docker Build Test - TEMPORARILY DISABLED/,/^  # Notification/c\
 print_status $YELLOW "🔧 Re-enabling Docker build and push in CD workflow..."
 
 # Replace the disabled build step with the enabled version
-sed -i.tmp '/# TEMPORARILY DISABLED - Docker build failing/,/^    - name: Generate SBOM/c\
+sed -i.tmp '/# TEMPORARILY DISABLED - Docker build failing/,/^    - name: Skip SBOM generation/c\
     - name: Build and push backend image\
       id: build\
       uses: docker/build-push-action@v5\
@@ -162,10 +162,44 @@ sed -i.tmp '/# TEMPORARILY DISABLED - Docker build failing/,/^    - name: Genera
         build-args: |\
           BUILDKIT_INLINE_CACHE=1\
 \
-    - name: Generate SBOM' .github/workflows/cd.yml
+    - name: Generate SBOM\
+      id: sbom\
+      run: |\
+        # Extract the first tag for SBOM generation (avoid multi-platform issues)\
+        IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)\
+        echo "Generating SBOM for image: $IMAGE_TAG"\
+\
+        # Install syft if not available\
+        if ! command -v syft &> /dev/null; then\
+          echo "Installing syft..."\
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin\
+        fi\
+\
+        # Generate SBOM with error handling\
+        if syft "$IMAGE_TAG" -o spdx-json=sbom.spdx.json; then\
+          echo "SBOM generated successfully"\
+          echo "sbom_generated=true" >> $GITHUB_OUTPUT\
+        else\
+          echo "SBOM generation failed, creating empty file"\
+          echo '"'"'{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"sbom-generation-failed","documentNamespace":"https://github.com/'"'"'${{ github.repository }}'"'"'","creationInfo":{"created":"'"'"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'"'","creators":["Tool: github-actions"]}}'"'"' > sbom.spdx.json\
+          echo "sbom_generated=false" >> $GITHUB_OUTPUT\
+        fi\
+      continue-on-error: true\
+\
+    - name: Skip SBOM generation' .github/workflows/cd.yml
 
 # Clean up temporary files
 rm -f .github/workflows/ci.yml.tmp .github/workflows/cd.yml.tmp
+
+# Update job outputs to remove skipped flag
+sed -i.tmp 's/skipped: \${{ steps\.build\.outputs\.skipped }}//' .github/workflows/cd.yml
+
+# Remove conditional checks for skipped builds
+sed -i.tmp 's/ && needs\.build-and-push\.outputs\.skipped != '\''true'\''//g' .github/workflows/cd.yml
+sed -i.tmp 's/ && needs\.build-and-push\.outputs\.skipped == '\''true'\''//g' .github/workflows/cd.yml
+
+# Remove docker-build-skipped job
+sed -i.tmp '/# Docker build skipped notification/,/echo "⏭️ Pipeline completed with Docker build skipped"/d' .github/workflows/cd.yml
 
 print_status $GREEN "✅ Docker builds re-enabled in CI/CD workflows"
 
