@@ -171,6 +171,7 @@ print_status $GREEN "✅ Docker builds re-enabled in CI/CD workflows"
 
 # Validate the updated workflow files
 print_status $YELLOW "🔍 Validating updated workflow files..."
+
 if command -v yamllint &> /dev/null; then
     if yamllint .github/workflows/ci.yml && yamllint .github/workflows/cd.yml; then
         print_status $GREEN "✅ Workflow YAML syntax is valid"
@@ -179,7 +180,34 @@ if command -v yamllint &> /dev/null; then
         exit 1
     fi
 else
-    print_status $YELLOW "⚠️  yamllint not available. Please manually validate YAML syntax."
+    print_status $YELLOW "⚠️  yamllint not available. Attempting to install yamllint..."
+
+    # Try to install yamllint if possible
+    if command -v pip &> /dev/null; then
+        pip install --user yamllint && export PATH="$PATH:$(python -m site --user-base)/bin"
+        if command -v yamllint &> /dev/null; then
+            print_status $GREEN "✅ yamllint installed successfully. Validating workflow files..."
+            if yamllint .github/workflows/ci.yml && yamllint .github/workflows/cd.yml; then
+                print_status $GREEN "✅ Workflow YAML syntax is valid"
+            else
+                print_status $RED "❌ Workflow YAML syntax errors detected. Please review the files."
+                exit 1
+            fi
+        else
+            print_status $RED "❌ yamllint installation failed. Falling back to basic YAML validation using Python."
+        fi
+    else
+        print_status $YELLOW "⚠️  pip not available. Falling back to basic YAML validation using Python."
+    fi
+
+    # Basic YAML syntax check using Python and PyYAML
+    if command -v python3 &> /dev/null; then
+        python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/ci.yml .github/workflows/cd.yml \
+        && print_status $GREEN '✅ Basic YAML syntax is valid (checked with PyYAML)' \
+        || { print_status $RED '❌ YAML syntax errors detected (checked with PyYAML). Please review the files.'; exit 1; }
+    else
+        print_status $YELLOW "⚠️  Python3 not available. Please manually validate YAML syntax or install yamllint."
+    fi
 fi
 
 print_status $GREEN "🎉 Docker builds successfully re-enabled!"
