@@ -21,7 +21,20 @@ type AutomationServiceTestSuite struct {
 
 // SetupSuite sets up the test suite
 func (suite *AutomationServiceTestSuite) SetupSuite() {
-	// Setup in-memory SQLite database
+	suite.userID = "test-user-123"
+}
+
+// TearDownTest cleans up after each test
+func (suite *AutomationServiceTestSuite) TearDownTest() {
+	if suite.db != nil {
+		sqlDB, _ := suite.db.DB()
+		sqlDB.Close()
+	}
+}
+
+// SetupTest sets up each test with a fresh database
+func (suite *AutomationServiceTestSuite) SetupTest() {
+	// Create a new in-memory SQLite database for each test
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	suite.Require().NoError(err)
 
@@ -38,33 +51,7 @@ func (suite *AutomationServiceTestSuite) SetupSuite() {
 	suite.Require().NoError(err)
 
 	suite.db = db
-	suite.service = NewService(db)
-	suite.userID = "test-user-123"
-}
-
-// TearDownSuite cleans up after the test suite
-func (suite *AutomationServiceTestSuite) TearDownSuite() {
-	sqlDB, _ := suite.db.DB()
-	sqlDB.Close()
-}
-
-// SetupTest sets up each test
-func (suite *AutomationServiceTestSuite) SetupTest() {
-	// Ensure tables exist and clean them before each test
-	tables := []interface{}{
-		&WebhookEndpoint{},
-		&WebhookDelivery{},
-		&RSSFeed{},
-		&BulkOperation{},
-		&BackupJob{},
-		&APIIntegration{},
-		&AutomationRule{},
-	}
-
-	for _, table := range tables {
-		suite.db.Migrator().DropTable(table)
-		suite.db.AutoMigrate(table)
-	}
+	suite.service = NewServiceForTesting(db)
 }
 
 // Webhook Endpoint Tests

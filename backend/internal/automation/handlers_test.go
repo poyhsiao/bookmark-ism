@@ -27,7 +27,23 @@ type AutomationHandlerTestSuite struct {
 
 // SetupSuite sets up the test suite
 func (suite *AutomationHandlerTestSuite) SetupSuite() {
-	// Setup in-memory SQLite database
+	suite.userID = "test-user-123"
+
+	// Setup Gin router
+	gin.SetMode(gin.TestMode)
+}
+
+// TearDownTest cleans up after each test
+func (suite *AutomationHandlerTestSuite) TearDownTest() {
+	if suite.db != nil {
+		sqlDB, _ := suite.db.DB()
+		sqlDB.Close()
+	}
+}
+
+// SetupTest sets up each test with a fresh database
+func (suite *AutomationHandlerTestSuite) SetupTest() {
+	// Create a new in-memory SQLite database for each test
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	suite.Require().NoError(err)
 
@@ -44,12 +60,10 @@ func (suite *AutomationHandlerTestSuite) SetupSuite() {
 	suite.Require().NoError(err)
 
 	suite.db = db
-	suite.service = NewService(db)
+	suite.service = NewServiceForTesting(db)
 	suite.handler = NewHandler(suite.service)
-	suite.userID = "test-user-123"
 
-	// Setup Gin router
-	gin.SetMode(gin.TestMode)
+	// Setup Gin router for each test
 	suite.router = gin.New()
 
 	// Add middleware to set user_id
@@ -61,24 +75,6 @@ func (suite *AutomationHandlerTestSuite) SetupSuite() {
 	// Register routes
 	api := suite.router.Group("/api/v1")
 	suite.handler.RegisterRoutes(api)
-}
-
-// TearDownSuite cleans up after the test suite
-func (suite *AutomationHandlerTestSuite) TearDownSuite() {
-	sqlDB, _ := suite.db.DB()
-	sqlDB.Close()
-}
-
-// SetupTest sets up each test
-func (suite *AutomationHandlerTestSuite) SetupTest() {
-	// Clean up tables before each test
-	suite.db.Exec("DELETE FROM webhook_endpoints")
-	suite.db.Exec("DELETE FROM webhook_deliveries")
-	suite.db.Exec("DELETE FROM rss_feeds")
-	suite.db.Exec("DELETE FROM bulk_operations")
-	suite.db.Exec("DELETE FROM backup_jobs")
-	suite.db.Exec("DELETE FROM api_integrations")
-	suite.db.Exec("DELETE FROM automation_rules")
 }
 
 // Helper method to make HTTP requests
@@ -122,8 +118,8 @@ func (suite *AutomationHandlerTestSuite) TestCreateWebhookEndpoint_Success() {
 	suite.NoError(err)
 	suite.Equal(reqBody.Name, response.Name)
 	suite.Equal(reqBody.URL, response.URL)
-	suite.Equal(reqBody.Events, response.Events)
-	suite.NotEmpty(response.Secret)
+	suite.Equal(reqBody.Events, []string(response.Events))
+	// Note: Secret field is hidden from JSON responses for security
 }
 
 func (suite *AutomationHandlerTestSuite) TestCreateWebhookEndpoint_InvalidRequest() {

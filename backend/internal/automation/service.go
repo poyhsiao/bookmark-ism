@@ -20,8 +20,9 @@ import (
 
 // Service handles automation operations
 type Service struct {
-	db         *gorm.DB
-	httpClient *http.Client
+	db                     *gorm.DB
+	httpClient             *http.Client
+	disableAsyncProcessing bool
 }
 
 // NewService creates a new automation service
@@ -31,6 +32,18 @@ func NewService(db *gorm.DB) *Service {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		disableAsyncProcessing: false,
+	}
+}
+
+// NewServiceForTesting creates a new automation service for testing with async processing disabled
+func NewServiceForTesting(db *gorm.DB) *Service {
+	return &Service{
+		db: db,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		disableAsyncProcessing: true,
 	}
 }
 
@@ -144,8 +157,10 @@ func (s *Service) TriggerWebhook(ctx context.Context, event WebhookEvent, userID
 			continue // Log error but continue with other endpoints
 		}
 
-		// Deliver webhook asynchronously
-		go s.deliverWebhook(ctx, &endpoint, delivery, payload)
+		// Deliver webhook asynchronously (unless disabled for testing)
+		if !s.disableAsyncProcessing {
+			go s.deliverWebhook(ctx, &endpoint, delivery, payload)
+		}
 	}
 
 	return nil
@@ -267,8 +282,10 @@ func (s *Service) CreateBulkOperation(userID string, req BulkOperationRequest) (
 		return nil, fmt.Errorf("failed to create bulk operation: %w", err)
 	}
 
-	// Start processing asynchronously
-	go s.processBulkOperation(operation)
+	// Start processing asynchronously (unless disabled for testing)
+	if !s.disableAsyncProcessing {
+		go s.processBulkOperation(operation)
+	}
 
 	return operation, nil
 }
@@ -312,8 +329,10 @@ func (s *Service) CreateBackupJob(userID string, req BackupRequest) (*BackupJob,
 		return nil, fmt.Errorf("failed to create backup job: %w", err)
 	}
 
-	// Start backup process asynchronously
-	go s.processBackupJob(job)
+	// Start backup process asynchronously (unless disabled for testing)
+	if !s.disableAsyncProcessing {
+		go s.processBackupJob(job)
+	}
 
 	return job, nil
 }

@@ -6,6 +6,9 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	// Import automation models
+	. "bookmark-sync-service/backend/internal/automation"
 )
 
 // Import monitoring models
@@ -270,6 +273,14 @@ func AutoMigrate(db *gorm.DB) error {
 		&LinkMonitoringJob{},
 		&LinkMaintenanceReport{},
 		&LinkChangeNotification{},
+		// Automation models
+		&WebhookEndpoint{},
+		&WebhookDelivery{},
+		&RSSFeed{},
+		&BulkOperation{},
+		&BackupJob{},
+		&APIIntegration{},
+		&AutomationRule{},
 	); err != nil {
 		return fmt.Errorf("failed to run auto migrations: %w", err)
 	}
