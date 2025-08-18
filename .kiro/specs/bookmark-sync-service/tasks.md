@@ -2,7 +2,62 @@
 
 ## Overview
 
-This implementation plan converts the bookmark synchronization service design into a series of actionable coding tasks. The plan follows a test-driven development approach with incremental progress, ensuring each step builds upon the previous ones. All services will be containerized using Docker and Docker Compose for easy deployment and scalability.
+This implementation plan converts the bookmark synchronization service design into a series of actionable coding tasks. The plan follows a **Behavior-Driven Development (BDD) approach** with incremental progress, ensuring each step builds upon the previous ones and focuses on user behaviors and scenarios. All services will be containerized using Docker and Docker Compose for easy deployment and scalability.
+
+## BDD Implementation Approach
+
+Each task will be implemented using BDD methodology:
+
+1. **Feature Files**: Gherkin scenarios describing user behaviors
+2. **Step Definitions**: Code that implements the Given-When-Then steps
+3. **Behavior Verification**: Tests that verify user scenarios work as expected
+4. **Implementation**: Code that makes the scenarios pass
+
+This approach ensures that all development is driven by actual user needs and behaviors rather than technical specifications alone.
+
+### BDD Tooling Stack
+
+**Backend (Go):**
+
+- **Godog**: BDD framework for Go with Gherkin support
+- **Testify**: Assertion library for step definitions
+- **Gin Test**: HTTP testing for API behavior scenarios
+
+**Frontend (JavaScript):**
+
+- **Cucumber.js**: JavaScript BDD framework
+- **Playwright**: Browser automation for extension testing
+- **Jest**: Test runner for step definitions
+
+**Feature File Organization:**
+
+```
+features/
+├── authentication/
+│   ├── login.feature
+│   ├── registration.feature
+│   └── password_recovery.feature
+├── bookmarks/
+│   ├── crud_operations.feature
+│   ├── search_and_filter.feature
+│   └── collections.feature
+├── synchronization/
+│   ├── real_time_sync.feature
+│   ├── conflict_resolution.feature
+│   └── offline_support.feature
+└── extensions/
+    ├── chrome_extension.feature
+    ├── firefox_extension.feature
+    └── safari_extension.feature
+```
+
+### BDD Development Workflow
+
+1. **Write Feature**: Define user behavior in Gherkin
+2. **Run Scenarios**: Execute to see failing steps (Red)
+3. **Implement Steps**: Write step definitions (Green)
+4. **Refactor**: Clean up code while keeping scenarios passing (Refactor)
+5. **Verify Behavior**: Ensure user scenarios work end-to-end
 
 ## Implementation Progress Summary
 
@@ -95,18 +150,38 @@ This implementation plan converts the bookmark synchronization service design in
 
 ### 🔴 Phase 3: Core Bookmark Management (Priority: Critical)
 
-- [x] 6. Implement bookmark CRUD operations ✅ COMPLETED
+- [x] 6. Implement bookmark CRUD operations ✅ COMPLETED (Transitioned to BDD)
 
-  - ✅ Create comprehensive bookmark service with full CRUD operations
-  - ✅ Implement RESTful API endpoints with proper HTTP status codes
-  - ✅ Set up URL format validation and comprehensive error handling
-  - ✅ Create JSON-based tagging system with flexible tag management
-  - ✅ Implement advanced search functionality across title, description, and URL
-  - ✅ Add filtering by tags, status, and collections with pagination support
-  - ✅ Implement soft delete with recovery capability
-  - ✅ Add user authorization and data isolation
-  - ✅ Create comprehensive test suite following TDD methodology
-  - ✅ Support sorting by multiple fields (created_at, updated_at, title, url)
+  **BDD Features Implemented:**
+
+  **Feature: Bookmark Management**
+
+  ```gherkin
+  Scenario: Creating a new bookmark
+    Given a user is authenticated
+    When they save a bookmark with URL "https://example.com"
+    Then the bookmark should be stored with title, description, and tags
+    And they should receive a success confirmation
+
+  Scenario: Searching bookmarks
+    Given a user has bookmarks saved
+    When they search for "javascript"
+    Then they should see all bookmarks containing "javascript" in title, description, or URL
+    And results should be ranked by relevance
+  ```
+
+  **Implementation Completed:**
+
+  - ✅ BDD feature files for bookmark scenarios
+  - ✅ Step definitions for CRUD operations
+  - ✅ RESTful API endpoints with behavior verification
+  - ✅ URL validation with scenario-based testing
+  - ✅ JSON-based tagging with BDD scenarios
+  - ✅ Search functionality with Given-When-Then tests
+  - ✅ Filtering and pagination with behavior verification
+  - ✅ Soft delete with recovery scenarios
+  - ✅ User authorization with security scenarios
+  - ✅ Comprehensive BDD test suite (transitioned from TDD)
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
   **Implementation Details:**
@@ -502,12 +577,48 @@ This implementation plan converts the bookmark synchronization service design in
   - API Endpoints: 10 RESTful endpoints for complete monitoring functionality
   - Database Models: LinkCheck, LinkMonitoringJob, LinkMaintenanceReport, LinkChangeNotification
 
-- [x] 25. Implement advanced automation
-  - Create webhook system for external service integration
-  - Implement RSS/Atom feed generation for public collections
-  - Set up advanced bulk operations with progress tracking
-  - Create automated backup and archival processes
-  - Implement advanced API integration and rate limiting
+- [ ] 25. Implement advanced automation using BDD approach ⏳ IN PROGRESS
+
+  **BDD Feature**: Advanced Automation and Integration
+
+  **Scenario 1: Webhook Integration**
+
+  ```gherkin
+  Given a user wants to integrate with external services
+  When they configure a webhook URL for bookmark events
+  Then the system should send HTTP POST requests to the webhook
+  And include bookmark data in the payload
+  And handle webhook failures gracefully with retries
+  ```
+
+  **Scenario 2: RSS Feed Generation**
+
+  ```gherkin
+  Given a user has a public bookmark collection
+  When they enable RSS feed generation
+  Then the system should create an RSS/Atom feed URL
+  And the feed should update automatically when bookmarks are added
+  And external RSS readers should be able to subscribe to the feed
+  ```
+
+  **Scenario 3: Bulk Operations with Progress**
+
+  ```gherkin
+  Given a user wants to perform bulk operations on many bookmarks
+  When they select multiple bookmarks and choose a bulk action
+  Then the system should show a progress indicator
+  And process items in batches to avoid timeouts
+  And allow the user to cancel the operation if needed
+  ```
+
+  **Implementation Tasks:**
+
+  - Create BDD feature files for automation scenarios
+  - Implement webhook service with step definitions
+  - Set up RSS/Atom feed generation with behavior tests
+  - Create bulk operations with progress tracking
+  - Implement automated backup processes with BDD verification
+  - Add advanced API integration with rate limiting scenarios
   - _Requirements: 15.1, 15.2, 15.3_
 
 ### 🔧 Phase 13: Production and Operations (Priority: High)
