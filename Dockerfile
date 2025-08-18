@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o main ./backend/cmd/api
 
 # Final stage - Alpine for development with debugging tools
-FROM alpine:3.21
+FROM alpine:3.22
 
 # Install ca-certificates and debugging tools for development
 RUN apk --no-cache add ca-certificates wget curl tzdata
