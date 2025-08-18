@@ -12,13 +12,50 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 **User Story:** As a user, I want to secure my bookmark data with authentication, so that only I can access my personal bookmarks.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user first uses the extension THEN the system SHALL require account creation or login
-2. WHEN a user logs in THEN the system SHALL use secure authentication tokens via Supabase Auth
-3. WHEN authentication tokens expire THEN the system SHALL prompt for re-authentication
-4. WHEN a user logs out THEN the system SHALL clear local bookmark cache and authentication data
-5. IF authentication fails THEN the system SHALL provide clear error messages and recovery options
+**Scenario 1: First-time user authentication**
+```gherkin
+Given a user installs the browser extension for the first time
+When they open the extension popup
+Then they should see a login/register form
+And they should not be able to access bookmark features without authentication
+```
+
+**Scenario 2: Successful user login**
+```gherkin
+Given a user has valid credentials
+When they enter their email and password and click login
+Then they should be authenticated with a secure JWT token
+And they should be redirected to the main bookmark interface
+And their session should be stored securely
+```
+
+**Scenario 3: Token expiration handling**
+```gherkin
+Given a user has an expired authentication token
+When they try to perform any bookmark operation
+Then they should be prompted to re-authenticate
+And their pending operation should be queued for after login
+```
+
+**Scenario 4: User logout**
+```gherkin
+Given a user is logged in
+When they click the logout button
+Then their authentication token should be invalidated
+And their local bookmark cache should be cleared
+And they should be redirected to the login screen
+```
+
+**Scenario 5: Authentication failure handling**
+```gherkin
+Given a user enters invalid credentials
+When they attempt to login
+Then they should see a clear error message
+And they should be offered password recovery options
+And the system should not reveal whether the email exists
+```
 
 #### Implementation Status: ✅ COMPLETED
 - ✅ Supabase Auth integration with JWT token validation
@@ -32,16 +69,66 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 **User Story:** As a user, I want to create, edit, and delete bookmarks, so that I can manage my bookmark collection.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user saves a bookmark THEN the system SHALL store URL, title, description, tags, favicon, and screenshot
-2. WHEN a user edits a bookmark THEN the system SHALL update the information with proper validation
-3. WHEN a user deletes a bookmark THEN the system SHALL soft delete it with recovery capability
-4. WHEN displaying bookmarks THEN the system SHALL show title, URL, description, tags, and timestamps
-5. WHEN a user searches bookmarks THEN the system SHALL search across title, description, and URL
-6. WHEN a user filters bookmarks THEN the system SHALL support filtering by tags, status, and collections
-7. WHEN listing bookmarks THEN the system SHALL support pagination and sorting
-8. IF bookmark operations fail THEN the system SHALL provide detailed error messages and validation feedback
+**Scenario 1: Creating a new bookmark**
+```gherkin
+Given a user is logged in and on a webpage
+When they click the "Save Bookmark" button in the extension
+Then the system should capture the URL, title, and page description
+And it should generate a favicon and screenshot
+And the bookmark should be saved with a timestamp
+And the user should see a success confirmation
+```
+
+**Scenario 2: Editing an existing bookmark**
+```gherkin
+Given a user has a saved bookmark
+When they click edit and modify the title, description, or tags
+Then the system should validate the changes
+And update the bookmark with the new information
+And preserve the original creation timestamp
+And show the updated modification timestamp
+```
+
+**Scenario 3: Deleting a bookmark with recovery**
+```gherkin
+Given a user wants to delete a bookmark
+When they click the delete button and confirm
+Then the bookmark should be soft deleted (not permanently removed)
+And it should be moved to a "Recently Deleted" section
+And the user should be able to recover it within 30 days
+And after 30 days it should be permanently deleted
+```
+
+**Scenario 4: Searching bookmarks**
+```gherkin
+Given a user has multiple bookmarks saved
+When they enter a search term in the search box
+Then the system should search across titles, descriptions, and URLs
+And display results ranked by relevance
+And highlight matching terms in the results
+And show "no results found" if no matches exist
+```
+
+**Scenario 5: Filtering bookmarks by tags**
+```gherkin
+Given a user has bookmarks with various tags
+When they select one or more tags from the filter menu
+Then only bookmarks containing those tags should be displayed
+And the filter should support multiple tag selection (AND/OR logic)
+And they should be able to clear filters to see all bookmarks
+```
+
+**Scenario 6: Paginated bookmark listing**
+```gherkin
+Given a user has more than 50 bookmarks
+When they view their bookmark list
+Then bookmarks should be displayed in pages of 50 items
+And they should see pagination controls at the bottom
+And they should be able to sort by date, title, or URL
+And the current page and total count should be visible
+```
 
 #### Implementation Status: ✅ COMPLETED
 - ✅ Full CRUD operations (Create, Read, Update, Delete)
@@ -64,13 +151,53 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 **User Story:** As a user, I want to organize my bookmarks in collections, so that I can group related bookmarks together.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user creates a collection THEN the system SHALL allow naming and basic organization
-2. WHEN a user adds bookmarks to collections THEN the system SHALL maintain the associations
-3. WHEN a user moves bookmarks between collections THEN the system SHALL update the organization
-4. WHEN displaying collections THEN the system SHALL show bookmark count and basic information
-5. IF collection operations fail THEN the system SHALL maintain data consistency
+**Scenario 1: Creating a new collection**
+```gherkin
+Given a user wants to organize their bookmarks
+When they click "Create Collection" and enter a name and description
+Then a new collection should be created with the specified details
+And it should appear in their collections list
+And it should initially contain zero bookmarks
+```
+
+**Scenario 2: Adding bookmarks to a collection**
+```gherkin
+Given a user has bookmarks and collections
+When they drag a bookmark onto a collection or use the "Add to Collection" menu
+Then the bookmark should be associated with that collection
+And the collection's bookmark count should increase
+And the bookmark should appear when viewing the collection
+```
+
+**Scenario 3: Moving bookmarks between collections**
+```gherkin
+Given a bookmark exists in Collection A
+When the user moves it to Collection B
+Then the bookmark should be removed from Collection A
+And added to Collection B
+And both collections' bookmark counts should update accordingly
+```
+
+**Scenario 4: Viewing collection details**
+```gherkin
+Given a user has collections with bookmarks
+When they view their collections list
+Then each collection should show its name, description, and bookmark count
+And they should be able to click to view the bookmarks within each collection
+And collections should be sortable by name, date created, or bookmark count
+```
+
+**Scenario 5: Collection operation error handling**
+```gherkin
+Given a collection operation fails due to network or server issues
+When the user attempts to create, modify, or delete a collection
+Then the system should maintain data consistency
+And show an appropriate error message
+And allow the user to retry the operation
+And not leave the collection in a corrupted state
+```
 
 #### Implementation Status: ⏳ PLANNED (Task 7)
 - ⏳ Collection model with basic folder support
@@ -84,25 +211,107 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 **User Story:** As a user, I want to sync my bookmarks across browsers, so that I have consistent access to my bookmarks.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user adds a bookmark in any browser THEN the system SHALL sync it to other browsers within 60 seconds
-2. WHEN a user modifies a bookmark THEN the system SHALL propagate changes across all devices
-3. WHEN sync conflicts occur THEN the system SHALL use timestamp-based resolution
-4. WHEN network is unavailable THEN the system SHALL queue changes for later sync
-5. IF sync fails THEN the system SHALL retry with exponential backoff
+**Scenario 1: Real-time bookmark synchronization**
+```gherkin
+Given a user has the extension installed on Chrome and Firefox
+When they save a bookmark in Chrome
+Then the bookmark should appear in Firefox within 60 seconds
+And both browsers should show the same bookmark data
+And the sync should happen automatically without user intervention
+```
+
+**Scenario 2: Bookmark modification sync**
+```gherkin
+Given a user has the same bookmark on multiple devices
+When they edit the bookmark title on Device A
+Then Device B should receive the updated title within 60 seconds
+And the modification timestamp should be updated on both devices
+And no data should be lost during the sync process
+```
+
+**Scenario 3: Sync conflict resolution**
+```gherkin
+Given the same bookmark is modified on two devices while offline
+When both devices come back online simultaneously
+Then the system should detect the conflict
+And resolve it using the most recent timestamp
+And notify the user about the conflict resolution
+And preserve both versions in the sync history
+```
+
+**Scenario 4: Offline sync queuing**
+```gherkin
+Given a user is working offline
+When they create, edit, or delete bookmarks
+Then the changes should be queued locally
+And when internet connection is restored
+Then all queued changes should sync automatically
+And the user should see sync progress indicators
+```
+
+**Scenario 5: Sync failure recovery**
+```gherkin
+Given a sync operation fails due to server issues
+When the system detects the failure
+Then it should retry with exponential backoff (1s, 2s, 4s, 8s...)
+And show the user the current sync status
+And continue retrying until successful or maximum attempts reached
+And allow manual retry if automatic retry fails
+```
 
 ### Requirement 5 - Browser Extension Interface
 
 **User Story:** As a user, I want browser extensions with basic bookmark management, so that I can access my bookmarks from any browser.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user installs the Chrome extension THEN it SHALL provide basic bookmark management
-2. WHEN a user installs the Firefox extension THEN it SHALL provide basic bookmark management
-3. WHEN a user opens the extension popup THEN it SHALL display bookmarks in a simple list/grid
-4. WHEN a user clicks a bookmark THEN it SHALL open in a new tab
-5. IF the user is not authenticated THEN the extension SHALL prompt for login
+**Scenario 1: Chrome extension installation and setup**
+```gherkin
+Given a user installs the Chrome extension
+When they click the extension icon for the first time
+Then they should see a welcome screen with login options
+And after authentication, they should access bookmark management features
+And the extension should integrate with Chrome's bookmark system
+```
+
+**Scenario 2: Firefox extension functionality**
+```gherkin
+Given a user installs the Firefox extension
+When they use the extension features
+Then they should have the same functionality as the Chrome version
+And bookmarks should sync between Chrome and Firefox
+And the UI should adapt to Firefox's design guidelines
+```
+
+**Scenario 3: Extension popup interface**
+```gherkin
+Given a user opens the extension popup
+When they view their bookmarks
+Then bookmarks should be displayed in a grid or list view
+And they should be able to toggle between view modes
+And search and filter options should be easily accessible
+And the interface should be responsive and fast
+```
+
+**Scenario 4: Bookmark navigation**
+```gherkin
+Given a user sees bookmarks in the extension popup
+When they click on a bookmark
+Then it should open in a new tab
+And the original tab should remain active
+And the click should be tracked for usage analytics (if enabled)
+```
+
+**Scenario 5: Authentication requirement**
+```gherkin
+Given a user is not logged in
+When they try to access bookmark features
+Then they should be redirected to the login screen
+And bookmark data should not be accessible
+And they should see a clear message about authentication requirement
+```
 
 ### 🟡 Phase 2: Enhanced Features
 
@@ -110,25 +319,104 @@ This feature involves creating a self-hosted multi-user bookmark synchronization
 
 **User Story:** As a user, I want a visual grid interface with previews, so that I can quickly identify and access my bookmarks.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN displaying bookmarks THEN the system SHALL show them in a visual grid layout
-2. WHEN a bookmark is saved THEN the system SHALL capture webpage screenshots using MinIO
-3. WHEN a user hovers over a bookmark THEN the system SHALL display additional information
-4. WHEN a user customizes the grid layout THEN the system SHALL save preferences
-5. IF screenshot capture fails THEN the system SHALL use favicon or default placeholder
+**Scenario 1: Visual grid bookmark display**
+```gherkin
+Given a user has saved bookmarks
+When they view their bookmark collection
+Then bookmarks should be displayed in a visual grid layout
+And each bookmark should show a thumbnail, title, and URL
+And the grid should be responsive to different screen sizes
+```
+
+**Scenario 2: Automatic screenshot capture**
+```gherkin
+Given a user saves a new bookmark
+When the bookmark is being processed
+Then the system should automatically capture a screenshot of the webpage
+And store it in MinIO storage
+And display the screenshot as the bookmark thumbnail
+And the process should complete within 10 seconds
+```
+
+**Scenario 3: Bookmark hover interactions**
+```gherkin
+Given a user is viewing bookmarks in grid mode
+When they hover over a bookmark thumbnail
+Then additional information should appear (description, tags, date saved)
+And the thumbnail should have a subtle hover effect
+And action buttons (edit, delete, share) should become visible
+```
+
+**Scenario 4: Grid layout customization**
+```gherkin
+Given a user wants to customize their bookmark view
+When they adjust grid size, spacing, or layout options
+Then their preferences should be saved automatically
+And applied consistently across all devices
+And the changes should take effect immediately
+```
+
+**Scenario 5: Screenshot fallback handling**
+```gherkin
+Given a webpage screenshot cannot be captured (due to restrictions or errors)
+When the bookmark is saved
+Then the system should use the webpage's favicon as the thumbnail
+And if no favicon is available, use a default placeholder image
+And indicate to the user that screenshot capture failed
+```
 
 ### Requirement 7 - Search and Discovery
 
 **User Story:** As a user, I want to search my bookmarks effectively, so that I can find specific content quickly.
 
-#### Acceptance Criteria
+#### BDD Scenarios
 
-1. WHEN a user searches THEN the system SHALL search titles, URLs, and descriptions with case-insensitive matching
-2. WHEN displaying search results THEN the system SHALL rank by relevance and support sorting
-3. WHEN search includes Chinese text THEN the system SHALL support Traditional/Simplified Chinese (planned with Typesense)
-4. WHEN no results are found THEN the system SHALL provide clear feedback
-5. IF search service is unavailable THEN the system SHALL fall back to basic text matching
+**Scenario 1: Basic bookmark search**
+```gherkin
+Given a user has bookmarks with various titles and descriptions
+When they enter a search term in the search box
+Then the system should search across titles, URLs, and descriptions
+And matching should be case-insensitive
+And results should be displayed in real-time as they type
+```
+
+**Scenario 2: Search result ranking and sorting**
+```gherkin
+Given search results are returned
+When the user views the results
+Then they should be ranked by relevance (title matches first, then description, then URL)
+And the user should be able to sort by date, title, or relevance
+And matching terms should be highlighted in the results
+```
+
+**Scenario 3: Chinese language search support**
+```gherkin
+Given a user searches using Chinese characters (Traditional or Simplified)
+When they enter Chinese text in the search box
+Then the system should properly tokenize and search Chinese content
+And support both Traditional and Simplified Chinese characters
+And provide accurate results for Chinese bookmarks
+```
+
+**Scenario 4: No results found handling**
+```gherkin
+Given a user searches for a term that doesn't match any bookmarks
+When the search completes
+Then they should see a "No results found" message
+And suggestions for refining their search
+And the option to clear the search and view all bookmarks
+```
+
+**Scenario 5: Search service fallback**
+```gherkin
+Given the advanced search service (Typesense) is unavailable
+When a user performs a search
+Then the system should fall back to basic text matching
+And inform the user that advanced search features are temporarily unavailable
+And still provide functional search results using the fallback method
+```
 
 #### Implementation Status: 🟡 PARTIALLY COMPLETED
 - ✅ Basic search across title, description, and URL

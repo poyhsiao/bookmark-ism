@@ -29,14 +29,12 @@ func (suite *RefactoredIntegrationTestSuite) SetupTest() {
 	suite.ctx = context.Background()
 	logger := zaptest.NewLogger(suite.T())
 
-	// Create worker pool for testing
-	workerPool := worker.NewWorkerPool(2, 10, logger)
-	workerPool.Start()
-
+	// Use nil worker pool to disable async processing in tests
+	// This prevents background jobs from making unexpected database calls
 	suite.service = NewRefactoredService(
 		suite.mockDB,
 		suite.mockRedis,
-		workerPool,
+		nil, // Disable async processing for deterministic testing
 		logger,
 	)
 }
@@ -89,7 +87,12 @@ func (suite *RefactoredIntegrationTestSuite) TestCompleteUserJourney_TrackBehavi
 	assert.NotNil(suite.T(), recommendations)
 
 	// Step 3: Get social metrics for the bookmark
-	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Return(&gorm.DB{Error: nil})
+	suite.mockDB.On("First", mock.AnythingOfType("*community.SocialMetrics"), mock.Anything).Run(func(args mock.Arguments) {
+		metrics := args.Get(0).(*SocialMetrics)
+		metrics.ID = 1
+		metrics.BookmarkID = bookmarkID
+		metrics.TotalViews = 1
+	}).Return(&gorm.DB{Error: nil})
 
 	metrics, err := suite.service.GetSocialMetrics(suite.ctx, bookmarkID)
 	assert.NoError(suite.T(), err)
@@ -138,8 +141,7 @@ func (suite *RefactoredIntegrationTestSuite) TestCaching_ConsistencyAcrossServic
 	followRequest := &FollowRequest{FollowingID: "user-456"}
 	suite.mockDB.On("First", mock.AnythingOfType("*community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: gorm.ErrRecordNotFound})
 	suite.mockDB.On("Create", mock.AnythingOfType("*community.UserFollow")).Return(&gorm.DB{Error: nil})
-	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123"}).Return(nil)
-	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-456"}).Return(nil)
+	suite.mockRedis.On("Del", suite.ctx, []string{"user_stats:user-123", "user_stats:user-456"}).Return(nil)
 
 	err = suite.service.FollowUser(suite.ctx, userID, followRequest)
 	assert.NoError(suite.T(), err)

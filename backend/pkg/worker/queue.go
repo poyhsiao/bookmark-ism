@@ -212,6 +212,14 @@ func (wp *WorkerPool) processJob(workerID int, job Job) {
 			backoff := time.Duration(job.GetRetryCount()) * time.Second
 			time.Sleep(backoff)
 
+			// Check if worker pool is shutting down before retry
+			select {
+			case <-wp.ctx.Done():
+				logger.Debug("Cannot retry job - worker pool shutting down")
+				return
+			default:
+			}
+
 			// Try to resubmit job with timeout to avoid blocking
 			retryCtx, retryCancel := context.WithTimeout(wp.ctx, time.Second)
 			defer retryCancel()
@@ -221,6 +229,9 @@ func (wp *WorkerPool) processJob(workerID int, job Job) {
 				logger.Debug("Job resubmitted for retry")
 			case <-retryCtx.Done():
 				logger.Debug("Cannot retry job - worker pool shutting down or timeout")
+				return
+			case <-wp.ctx.Done():
+				logger.Debug("Cannot retry job - worker pool shutting down")
 				return
 			}
 		} else {

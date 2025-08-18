@@ -49,12 +49,11 @@ func (suite *UserRelationshipServiceTestSuite) TestFollowUser_Success() {
 	// Mock successful creation
 	suite.mockDB.On("Create", mock.AnythingOfType("*community.UserFollow")).Return(&gorm.DB{Error: nil})
 
-	// Mock cache clearing
+	// Mock cache clearing - expect single call with multiple keys
 	suite.mockRedis.On("Del", suite.ctx, mock.MatchedBy(func(keys []string) bool {
-		return len(keys) == 1 && keys[0] == "user_stats:user-123"
-	})).Return(nil)
-	suite.mockRedis.On("Del", suite.ctx, mock.MatchedBy(func(keys []string) bool {
-		return len(keys) == 1 && keys[0] == "user_stats:user-456"
+		return len(keys) == 2 &&
+			((keys[0] == "user_stats:user-123" && keys[1] == "user_stats:user-456") ||
+				(keys[0] == "user_stats:user-456" && keys[1] == "user_stats:user-123"))
 	})).Return(nil)
 
 	err := suite.service.FollowUser(suite.ctx, followerID, request)
@@ -128,12 +127,11 @@ func (suite *UserRelationshipServiceTestSuite) TestUnfollowUser_Success() {
 	// Mock successful deletion
 	suite.mockDB.On("Delete", mock.AnythingOfType("*community.UserFollow"), mock.Anything).Return(&gorm.DB{Error: nil})
 
-	// Mock cache clearing
+	// Mock cache clearing - expect single call with multiple keys
 	suite.mockRedis.On("Del", suite.ctx, mock.MatchedBy(func(keys []string) bool {
-		return len(keys) == 1 && keys[0] == "user_stats:user-123"
-	})).Return(nil)
-	suite.mockRedis.On("Del", suite.ctx, mock.MatchedBy(func(keys []string) bool {
-		return len(keys) == 1 && keys[0] == "user_stats:user-456"
+		return len(keys) == 2 &&
+			((keys[0] == "user_stats:user-123" && keys[1] == "user_stats:user-456") ||
+				(keys[0] == "user_stats:user-456" && keys[1] == "user_stats:user-123"))
 	})).Return(nil)
 
 	err := suite.service.UnfollowUser(suite.ctx, followerID, followingID)

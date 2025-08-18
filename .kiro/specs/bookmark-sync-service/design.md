@@ -30,6 +30,16 @@ The bookmark synchronization service is designed as a distributed system consist
 - **Offline-First**: Local-first approach with intelligent conflict resolution
 - **Social Integration**: Community features with granular privacy controls
 
+### BDD-Driven Architecture
+
+The system architecture is designed around user behaviors and scenarios rather than technical components. Each service is organized around specific user journeys:
+
+- **Authentication Behaviors**: Login, logout, token refresh, password recovery
+- **Bookmark Management Behaviors**: Create, read, update, delete, search, organize
+- **Synchronization Behaviors**: Real-time sync, conflict resolution, offline queuing
+- **Social Behaviors**: Share collections, discover content, follow users
+- **Content Behaviors**: Screenshot capture, metadata extraction, content analysis
+
 ## Architecture
 
 ### High-Level Architecture
@@ -783,28 +793,62 @@ interface ApiError {
 - Graceful service degradation
 - Comprehensive logging and monitoring
 
-## Testing Strategy
+## BDD Testing Strategy
 
-### Unit Testing
+### Behavior-Driven Testing Approach
 
-- **Backend Services**: Jest/Mocha for API endpoints and business logic
-- **Browser Extensions**: Jest with browser API mocking
-- **Database Layer**: Integration tests with test database
-- **Utilities**: Pure function testing with comprehensive coverage
+The testing strategy focuses on user behaviors and scenarios rather than technical implementation details.
 
-### Integration Testing
+### Feature-Level Testing (BDD)
 
-- **API Integration**: End-to-end API workflow testing
-- **Database Integration**: Multi-service transaction testing
-- **External Service Integration**: Mock external APIs
-- **Cross-Browser Testing**: Automated extension testing
+**Backend Services (Go + Godog):**
+- **Authentication Behaviors**: Login, logout, token refresh scenarios
+- **Bookmark Management Behaviors**: CRUD operations, search, filtering scenarios
+- **Synchronization Behaviors**: Real-time sync, conflict resolution scenarios
+- **API Behaviors**: RESTful endpoint behavior verification
 
-### End-to-End Testing
+**Browser Extensions (Cucumber.js + Playwright):**
+- **Extension Installation**: First-time setup and onboarding scenarios
+- **Cross-Browser Sync**: Multi-browser synchronization scenarios
+- **Offline Behavior**: Offline usage and sync recovery scenarios
+- **User Interface**: Popup, options, and content script behaviors
 
-- **User Workflows**: Selenium/Playwright for complete user journeys
-- **Sync Testing**: Multi-device synchronization scenarios
-- **Performance Testing**: Load testing with realistic data volumes
-- **Security Testing**: Authentication and authorization testing
+### Scenario-Based Integration Testing
+
+**Multi-Service Behaviors:**
+- **End-to-End User Journeys**: Complete user workflows from login to bookmark management
+- **Cross-Device Scenarios**: Multi-device synchronization and conflict resolution
+- **External Service Integration**: Third-party service interaction behaviors
+- **Performance Behaviors**: System behavior under load and stress conditions
+
+### BDD Test Organization
+
+```
+features/
+├── core_functionality/
+│   ├── user_authentication.feature
+│   ├── bookmark_management.feature
+│   └── collection_organization.feature
+├── synchronization/
+│   ├── real_time_sync.feature
+│   ├── offline_sync.feature
+│   └── conflict_resolution.feature
+├── user_interface/
+│   ├── extension_popup.feature
+│   ├── web_interface.feature
+│   └── mobile_responsive.feature
+└── integration/
+    ├── cross_browser_sync.feature
+    ├── multi_device_scenarios.feature
+    └── external_services.feature
+```
+
+### Behavior Verification Levels
+
+1. **Unit Behaviors**: Individual component behaviors
+2. **Service Behaviors**: Service-level user scenarios
+3. **Integration Behaviors**: Multi-service user journeys
+4. **System Behaviors**: Complete end-to-end user experiences
 
 ### Testing Data Management
 
