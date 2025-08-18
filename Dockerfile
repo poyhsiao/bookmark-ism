@@ -9,7 +9,8 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set environment variables for Go build
 ENV CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64
+    GOARCH=amd64 \
+    GO111MODULE=on
 
 # Set working directory
 WORKDIR /build
@@ -21,8 +22,8 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
-# Copy only necessary source code (backend directory)
-COPY backend ./backend
+# Copy the entire source tree to maintain module structure
+COPY . .
 
 # Build the application with optimized flags
 RUN --mount=type=cache,target=/root/.cache/go-build \

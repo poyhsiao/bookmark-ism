@@ -37,6 +37,32 @@ fi
 
 print_status $GREEN "✅ Project structure validated"
 
+# Check Go module structure
+print_status $YELLOW "🔍 Validating Go module structure..."
+if grep -q "module bookmark-sync-service" go.mod; then
+    print_status $GREEN "✅ Go module name matches expected pattern"
+else
+    print_status $RED "❌ Go module name doesn't match expected pattern"
+    exit 1
+fi
+
+# Verify Go modules (consolidated check - Docker build will also verify)
+print_status $YELLOW "🔍 Verifying Go modules..."
+if go mod verify >/dev/null 2>&1; then
+    print_status $GREEN "✅ Go modules verified successfully"
+else
+    print_status $RED "❌ Go module verification failed"
+    exit 1
+fi
+
+# Check if backend directory exists
+if [[ -d "backend" ]] && [[ -f "backend/cmd/api/main.go" ]]; then
+    print_status $GREEN "✅ Backend structure validated"
+else
+    print_status $RED "❌ Backend structure is missing"
+    exit 1
+fi
+
 # Validate Dockerfile syntax
 print_status $YELLOW "🔍 Validating Dockerfile syntax..."
 if docker build --check -f Dockerfile.prod .; then
@@ -86,6 +112,11 @@ if docker build -f Dockerfile.prod -t "$TEST_TAG" . --progress=plain; then
     fi
 else
     print_status $RED "❌ Docker build failed"
+    print_status $YELLOW "💡 Common issues and solutions:"
+    echo "   • Module resolution: Ensure go.mod is at project root"
+    echo "   • Import paths: Check that all imports use the correct module path"
+    echo "   • Build context: Make sure all source files are copied correctly"
+    echo "   • Dependencies: Verify go.sum is up to date"
     exit 1
 fi
 
@@ -93,12 +124,12 @@ echo ""
 print_status $GREEN "🎉 All validations passed! The Docker build fix is working correctly."
 echo ""
 print_status $YELLOW "📝 Summary of fixes applied:"
-echo "   • Fixed build context path issues"
-echo "   • Optimized layer caching with go.mod/go.sum copy"
+echo "   • Fixed Go module resolution by copying entire source tree"
+echo "   • Set GO111MODULE=on explicitly for module mode"
+echo "   • Consolidated module verification (single check in validation)"
+echo "   • Optimized layer caching with go.mod/go.sum copy first"
 echo "   • Added build cache mounts for faster builds"
-echo "   • Used distroless base image for security"
-echo "   • Added proper build flags for static binary"
-echo "   • Included health check configuration"
-echo "   • Maintained non-root user for security"
+echo "   • Used Alpine base for better compatibility"
+echo "   • Applied same fixes to both development and production Dockerfiles"
 echo ""
 print_status $GREEN "✅ Ready for GitHub Actions deployment!"
