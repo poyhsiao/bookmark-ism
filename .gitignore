@@ -235,3 +235,8 @@ DEBUG_*
 .kiro/temp/
 .kiro/cache/
 .kiro/.temp/
+
+# Docker Swarm secrets (keep examples, ignore actual secrets)
+secrets/*.txt
+!secrets/*.example
+!secrets/README.md
