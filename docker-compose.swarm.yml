@@ -1,0 +1,660 @@
+# Docker Swarm Production Deployment Configuration
+# Enhanced for Task 26: Production deployment infrastructure with container orchestration
+
+version: '3.8'
+
+services:
+  # Production Supabase Database with Swarm deployment
+  supabase-db:
+    image: supabase/postgres:15.1.0.117
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_HOST: supabase-db
+      POSTGRES_PORT: 5432
+      # Production optimizations
+      POSTGRES_SHARED_PRELOAD_LIBRARIES: 'pg_stat_statements'
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_SHARED_BUFFERS: 512MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 2GB
+      POSTGRES_WORK_MEM: 8MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 128MB
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: 0.9
+      POSTGRES_WAL_BUFFERS: 16MB
+      POSTGRES_DEFAULT_STATISTICS_TARGET: 100
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+      - ./backups:/backups
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.database == true
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        monitor: 60s
+        order: stop-first
+
+  # Production Supabase Auth with Swarm scaling
+  supabase-auth:
+    image: supabase/gotrue:v2.99.0
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${AUTH_DB_PASSWORD}@supabase-db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY:-3600}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      # Production OAuth Configuration
+      GOTRUE_EXTERNAL_GITHUB_ENABLED: ${GITHUB_ENABLED:-false}
+      GOTRUE_EXTERNAL_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GOTRUE_EXTERNAL_GITHUB_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOTRUE_EXTERNAL_GITHUB_REDIRECT_URI: ${SITE_URL}/auth/v1/callback
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${SITE_URL}/auth/v1/callback
+      # Production Email Configuration
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${ADMIN_EMAIL}
+      GOTRUE_MAILER_AUTOCONFIRM: ${MAILER_AUTOCONFIRM:-false}
+      GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: ${MAILER_SECURE_EMAIL_CHANGE:-true}
+      # Security settings
+      GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: start-first
+
+  # Production Supabase REST API with Swarm scaling
+  supabase-rest:
+    image: postgrest/postgrest:v11.2.0
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${AUTHENTICATOR_PASSWORD}@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public}
+      PGRST_DB_ANON_ROLE: ${PGRST_DB_ANON_ROLE:-anon}
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: false
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY:-3600}
+      PGRST_DB_POOL: 30
+      PGRST_DB_POOL_TIMEOUT: 10
+      PGRST_SERVER_HOST: 0.0.0.0
+      PGRST_SERVER_PORT: 3000
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: start-first
+
+  # Production Supabase Realtime with Swarm scaling
+  supabase-realtime:
+    image: supabase/realtime:v2.25.35
+    environment:
+      PORT: 4000
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_USER: supabase_realtime_admin
+      DB_PASSWORD: ${REALTIME_DB_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+      DB_ENC_KEY: ${REALTIME_ENC_KEY}
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: "false"
+      DNS_NODES: "''"
+      # Production optimizations
+      REALTIME_MAX_CONNECTIONS: 1000
+      REALTIME_POOL_SIZE: 20
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: start-first
+
+  # Production Redis with Swarm deployment
+  redis:
+    image: redis:7.2-alpine
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.cache == true
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
+
+  # Production Typesense with Swarm deployment
+  typesense:
+    image: typesense/typesense:0.25.2
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      TYPESENSE_ENABLE_CORS: true
+      TYPESENSE_LOG_LEVEL: INFO
+      TYPESENSE_PEERING_ADDRESS: typesense:8107
+      TYPESENSE_NODES: typesense:8107
+    volumes:
+      - typesense_data:/data
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.search == true
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
+
+  # Production MinIO Storage with Swarm deployment
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL}
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL}
+      # Production optimizations
+      MINIO_CACHE_DRIVES: /cache
+      MINIO_CACHE_EXCLUDE: "*.pdf"
+      MINIO_CACHE_QUOTA: 80
+      MINIO_CACHE_AFTER: 3
+      MINIO_CACHE_WATERMARK_LOW: 70
+      MINIO_CACHE_WATERMARK_HIGH: 90
+    volumes:
+      - minio_data:/data
+      - minio_cache:/cache
+      - ./minio/policies:/policies
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.storage == true
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
+
+  # Production Nginx Load Balancer with Swarm deployment
+  nginx:
+    image: nginx:1.25-alpine
+    volumes:
+      - ./nginx/nginx.swarm.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: ingress
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: start-first
+
+  # Production Go API Service with Horizontal Scaling
+  api:
+    image: ${DOCKER_REGISTRY:-localhost:5000}/bookmark-sync-api:${API_VERSION:-latest}
+    environment:
+      # Server Configuration
+      SERVER_PORT: 8080
+      SERVER_HOST: 0.0.0.0
+      SERVER_ENVIRONMENT: production
+      SERVER_READ_TIMEOUT: 30s
+      SERVER_WRITE_TIMEOUT: 30s
+      SERVER_IDLE_TIMEOUT: 120s
+
+      # Database Configuration
+      DATABASE_HOST: supabase-db
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_DBNAME: postgres
+      DATABASE_SSLMODE: require
+      DATABASE_MAX_CONNS: 50
+      DATABASE_MIN_CONNS: 10
+      DATABASE_MAX_CONN_LIFETIME: 1h
+      DATABASE_MAX_CONN_IDLE_TIME: 30m
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: 0
+      REDIS_POOL_SIZE: 20
+      REDIS_MIN_IDLE_CONNS: 5
+      REDIS_DIAL_TIMEOUT: 5s
+      REDIS_READ_TIMEOUT: 3s
+      REDIS_WRITE_TIMEOUT: 3s
+
+      # Supabase Configuration
+      SUPABASE_URL: http://supabase-rest:3000
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_AUTH_URL: http://supabase-auth:9999
+      SUPABASE_REALTIME_URL: ws://supabase-realtime:4000
+
+      # Storage Configuration
+      STORAGE_ENDPOINT: minio:9000
+      STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      STORAGE_BUCKET_NAME: bookmarks
+      STORAGE_USE_SSL: false
+      STORAGE_REGION: us-east-1
+
+      # Search Configuration
+      SEARCH_HOST: typesense
+      SEARCH_PORT: 8108
+      SEARCH_API_KEY: ${TYPESENSE_API_KEY}
+      SEARCH_CONNECTION_TIMEOUT: 5s
+      SEARCH_TIMEOUT: 10s
+
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOUR: 24
+      JWT_REFRESH_EXPIRY_HOUR: 168
+
+      # Logger Configuration
+      LOG_LEVEL: info
+      LOGGER_FORMAT: json
+      LOGGER_OUTPUT_PATH: stdout
+
+      # Performance Configuration
+      GOMAXPROCS: 2
+      GOGC: 100
+      GOMEMLIMIT: 1GiB
+
+      # Monitoring Configuration
+      METRICS_ENABLED: true
+      METRICS_PORT: 9090
+      HEALTH_CHECK_INTERVAL: 30s
+
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: true
+      RATE_LIMIT_REQUESTS_PER_MINUTE: 1000
+      RATE_LIMIT_BURST: 100
+
+      # Circuit Breaker
+      CIRCUIT_BREAKER_ENABLED: true
+      CIRCUIT_BREAKER_TIMEOUT: 60s
+      CIRCUIT_BREAKER_MAX_REQUESTS: 3
+      CIRCUIT_BREAKER_INTERVAL: 10s
+      CIRCUIT_BREAKER_RATIO: 0.6
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      replicas: 5
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 2
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+        order: start-first
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 2
+        delay: 5s
+        failure_action: pause
+        monitor: 30s
+        order: stop-first
+
+  # Production Web Application (Optional - if serving static files)
+  web:
+    image: ${DOCKER_REGISTRY:-localhost:5000}/bookmark-sync-web:${WEB_VERSION:-latest}
+    networks:
+      - bookmark-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.labels.zone
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: start-first
+
+volumes:
+  supabase_db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/bookmark-sync/data/postgres
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/bookmark-sync/data/redis
+  typesense_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/bookmark-sync/data/typesense
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/bookmark-sync/data/minio
+  minio_cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/bookmark-sync/cache/minio
+
+networks:
+  bookmark-network:
+    driver: overlay
+    attachable: true
+    driver_opts:
+      encrypted: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.1.0/24
+
+configs:
+  nginx_config:
+    file: ./nginx/nginx.swarm.conf
+  nginx_ssl_config:
+    file: ./nginx/ssl/ssl.conf
+
+secrets:
+  postgres_password:
+    external: true
+  jwt_secret:
+    external: true
+  redis_password:
+    external: true
+  typesense_api_key:
+    external: true
+  minio_root_password:
+    external: true
