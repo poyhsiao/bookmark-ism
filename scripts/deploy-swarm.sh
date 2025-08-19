@@ -171,11 +171,11 @@ init_swarm_secrets() {
     fi
 
     # Create secrets if they don't exist
-    create_secret_if_not_exists "postgres_password" "$POSTGRES_PASSWORD"
-    create_secret_if_not_exists "jwt_secret" "$JWT_SECRET"
-    create_secret_if_not_exists "redis_password" "$REDIS_PASSWORD"
-    create_secret_if_not_exists "typesense_api_key" "$TYPESENSE_API_KEY"
-    create_secret_if_not_exists "minio_root_password" "$MINIO_ROOT_PASSWORD"
+    create_secret_if_not_exists "postgres_password" "postgres_password.txt"
+    create_secret_if_not_exists "jwt_secret" "jwt_secret.txt"
+    create_secret_if_not_exists "redis_password" "redis_password.txt"
+    create_secret_if_not_exists "typesense_api_key" "typesense_api_key.txt"
+    create_secret_if_not_exists "minio_root_password" "minio_root_password.txt"
 
     log_success "Docker Swarm secrets initialized"
 }
@@ -183,13 +183,19 @@ init_swarm_secrets() {
 # Helper function to create secret if it doesn't exist
 create_secret_if_not_exists() {
     local secret_name="$1"
-    local secret_value="$2"
+    local secret_file="$2"
 
     if docker secret ls --format "{{.Name}}" | grep -q "^${secret_name}$"; then
         log_debug "Secret $secret_name already exists"
     else
-        echo "$secret_value" | docker secret create "$secret_name" -
-        log_info "Created secret: $secret_name"
+        if [[ -f "$PROJECT_ROOT/secrets/${secret_file}" ]]; then
+            docker secret create "$secret_name" "$PROJECT_ROOT/secrets/${secret_file}"
+            log_info "Created secret: $secret_name from file: $secret_file"
+        else
+            log_error "Secret file not found: $PROJECT_ROOT/secrets/${secret_file}"
+            log_info "Please copy secrets/${secret_file}.example to secrets/${secret_file} and edit with actual values"
+            exit 1
+        fi
     fi
 }
 
@@ -240,10 +246,14 @@ create_directories() {
         "$base_dir/backups"
     )
 
+    # Allow UID/GID to be set via environment variables, default to 1000
+    CONTAINER_UID="${CONTAINER_UID:-1000}"
+    CONTAINER_GID="${CONTAINER_GID:-1000}"
+
     for dir in "${dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             sudo mkdir -p "$dir"
-            sudo chown -R 1000:1000 "$dir"
+            sudo chown -R "$CONTAINER_UID:$CONTAINER_GID" "$dir"
             log_info "Created directory: $dir"
         else
             log_debug "Directory already exists: $dir"
@@ -309,20 +319,33 @@ wait_for_services() {
     local attempt=0
 
     while [[ $attempt -lt $max_attempts ]]; do
-        local running_services=$(docker stack services "$STACK_NAME" --format "{{.Replicas}}" | grep -c "/")
-        local ready_services=$(docker stack services "$STACK_NAME" --format "{{.Replicas}}" | grep -c "^[0-9]*/[0-9]*$" | grep -v "0/")
+        local all_ready=true
+        local services=$(docker stack services "$STACK_NAME" --format "{{.Name}}")
 
-        if [[ $running_services -eq $ready_services ]] && [[ $ready_services -gt 0 ]]; then
-            log_success "All services are ready"
+        for service in $services; do
+            # Get all tasks for the service
+            local tasks=$(docker service ps "$service" --format "{{.CurrentState}}" | grep -v "Shutdown")
+            local task_count=$(echo "$tasks" | wc -l)
+            local running_count=$(echo "$tasks" | grep -c "^Running")
+
+            # If any task is not running, mark as not ready
+            if [[ $task_count -eq 0 ]] || [[ $running_count -ne $task_count ]]; then
+                all_ready=false
+                break
+            fi
+        done
+
+        if [[ "$all_ready" == "true" ]] && [[ -n "$services" ]]; then
+            log_success "All services are running and healthy"
             return 0
         fi
 
-        log_info "Waiting for services... ($((attempt + 1))/$max_attempts)"
+        log_info "Waiting for services to be healthy... ($((attempt + 1))/$max_attempts)"
         sleep 10
         ((attempt++))
     done
 
-    log_warning "Some services may not be ready yet. Check with: docker stack services $STACK_NAME"
+    log_warning "Some services may not be healthy yet. Check with: docker service ps <service_name>"
 }
 
 # Show deployment status

@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -73,8 +75,53 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	})
 }
 
+// getAllFeatureScenarios parses all feature files and returns scenario names
+func getAllFeatureScenarios(featureDir string) (map[string]struct{}, error) {
+	scenarios := make(map[string]struct{})
+
+	err := filepath.Walk(featureDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && strings.HasSuffix(path, ".feature") {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			gherkinDocument, err := io.ParseGherkinDocument(gio.NewReader(f))
+			if err != nil {
+				return err
+			}
+
+			if gherkinDocument.Feature != nil {
+				for _, child := range gherkinDocument.Feature.Children {
+					if child.Scenario != nil {
+						scenarios[child.Scenario.Name] = struct{}{}
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	return scenarios, err
+}
+
 // TestProductionDeploymentFeatures runs the BDD tests for production deployment
 func TestProductionDeploymentFeatures(t *testing.T) {
+	featureDir := "features/production-deployment"
+
+	// Get all scenarios from feature files
+	allScenarios, err := getAllFeatureScenarios(featureDir)
+	if err != nil {
+		t.Fatalf("Failed to parse feature files: %v", err)
+	}
+
+	executedScenarios := make(map[string]struct{})
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			// Initialize production infrastructure context
@@ -84,16 +131,36 @@ func TestProductionDeploymentFeatures(t *testing.T) {
 			// Initialize Docker Swarm orchestration context
 			swarmCtx := step_definitions.NewDockerSwarmOrchestrationContext(t)
 			swarmCtx.RegisterSteps(ctx)
+
+			// Track executed scenarios
+			ctx.BeforeScenario(func(sc *godog.Scenario) {
+				executedScenarios[sc.Name] = struct{}{}
+			})
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
-			Paths:    []string{"features/production-deployment"},
+			Paths:    []string{featureDir},
 			TestingT: t,
 		},
 	}
 
-	if suite.Run() != 0 {
-		t.Fatal("non-zero status returned, failed to run feature tests")
+	status := suite.Run()
+
+	// After test run, check for unexecuted scenarios
+	missingScenarios := []string{}
+	for scenario := range allScenarios {
+		if _, ok := executedScenarios[scenario]; !ok {
+			missingScenarios = append(missingScenarios, scenario)
+		}
+	}
+
+	if len(missingScenarios) > 0 {
+		t.Errorf("The following scenarios were not executed (possibly due to missing step definitions):\n%s",
+			strings.Join(missingScenarios, "\n"))
+	}
+
+	if status != 0 {
+		t.Fail()
 	}
 }
 

@@ -55,7 +55,10 @@ stage_checkout() {
 
     if [[ -n "${GIT_URL:-}" ]]; then
         log_info "Cloning repository: $GIT_URL"
-        git clone "$GIT_URL" "$PROJECT_ROOT" || true
+        if ! git clone "$GIT_URL" "$PROJECT_ROOT"; then
+            log_error "Failed to clone repository: $GIT_URL"
+            exit 1
+        fi
         cd "$PROJECT_ROOT"
         git checkout "${GIT_BRANCH:-main}"
     else
@@ -260,11 +263,15 @@ stage_deploy_production() {
     # Require manual approval for production deployment
     if [[ "${AUTO_DEPLOY_PROD:-false}" != "true" ]]; then
         log_warning "Production deployment requires manual approval"
-        read -p "Deploy to production? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "Production deployment cancelled"
-            return 0
+        if [[ "${NON_INTERACTIVE:-false}" == "true" ]]; then
+            log_info "Non-interactive mode enabled; proceeding without manual approval"
+        else
+            read -t 30 -p "Deploy to production? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log_info "Production deployment cancelled"
+                return 0
+            fi
         fi
     fi
 
@@ -353,8 +360,25 @@ wait_for_deployment() {
     return 1
 }
 
+# Helper function to retry a command
+retry_command() {
+    local max_attempts="$1"
+    local delay="$2"
+    shift 2
+    local attempt=1
+
+    while (( attempt <= max_attempts )); do
+        "$@" && return 0
+        (( attempt++ ))
+        sleep "$delay"
+    done
+    return 1
+}
+
 send_deployment_notification() {
     local status="$1"
+    local max_attempts=3
+    local delay=5
 
     if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
         local color="good"
@@ -365,14 +389,21 @@ send_deployment_notification() {
             message="Deployment failed"
         fi
 
-        curl -X POST -H 'Content-type: application/json' \
-            --data "{\"attachments\":[{\"color\":\"$color\",\"text\":\"$message - Build: $BUILD_NUMBER, Commit: $GIT_COMMIT\"}]}" \
-            "$SLACK_WEBHOOK_URL"
+        local slack_payload="{\"attachments\":[{\"color\":\"$color\",\"text\":\"$message - Build: $BUILD_NUMBER, Commit: $GIT_COMMIT\"}]}"
+
+        if ! retry_command "$max_attempts" "$delay" curl -X POST -H 'Content-type: application/json' \
+            --data "$slack_payload" "$SLACK_WEBHOOK_URL"; then
+            log_error "Failed to send Slack notification after $max_attempts attempts"
+        fi
     fi
 
     if [[ -n "${EMAIL_NOTIFICATION:-}" ]]; then
-        echo "Deployment $status - Build: $BUILD_NUMBER, Commit: $GIT_COMMIT" | \
-            mail -s "Bookmark Sync Deployment $status" "$EMAIL_NOTIFICATION"
+        local email_subject="Bookmark Sync Deployment $status"
+        local email_body="Deployment $status - Build: $BUILD_NUMBER, Commit: $GIT_COMMIT"
+
+        if ! retry_command "$max_attempts" "$delay" bash -c "echo \"$email_body\" | mail -s \"$email_subject\" \"$EMAIL_NOTIFICATION\""; then
+            log_error "Failed to send email notification after $max_attempts attempts"
+        fi
     fi
 }
 
