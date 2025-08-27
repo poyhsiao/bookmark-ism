@@ -379,12 +379,39 @@ func (bs *BackupService) postProcessBackup(job *BackupJob) error {
 }
 
 // compressFile 压缩文件
+import (
+	"compress/gzip"
+	"io"
+	"os"
+)
+
+// compressFile 压缩文件
 func (bs *BackupService) compressFile(filePath string) (string, error) {
 	compressedPath := filePath + ".gz"
-	cmd := exec.Command("gzip", filePath)
-	if err := cmd.Run(); err != nil {
+
+	// Open the source file for reading
+	srcFile, err := os.Open(filePath)
+	if err != nil {
 		return "", err
 	}
+	defer srcFile.Close()
+
+	// Create the destination file for writing
+	destFile, err := os.Create(compressedPath)
+	if err != nil {
+		return "", err
+	}
+	defer destFile.Close()
+
+	// Create a gzip writer
+	gzipWriter := gzip.NewWriter(destFile)
+	defer gzipWriter.Close()
+
+	// Copy the contents of the source file to the gzip writer
+	if _, err := io.Copy(gzipWriter, srcFile); err != nil {
+		return "", err
+	}
+
 	return compressedPath, nil
 }
 
