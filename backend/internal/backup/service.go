@@ -1,11 +1,14 @@
 package backup
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -379,13 +382,6 @@ func (bs *BackupService) postProcessBackup(job *BackupJob) error {
 }
 
 // compressFile 压缩文件
-import (
-	"compress/gzip"
-	"io"
-	"os"
-)
-
-// compressFile 压缩文件
 func (bs *BackupService) compressFile(filePath string) (string, error) {
 	compressedPath := filePath + ".gz"
 
@@ -422,8 +418,16 @@ func (bs *BackupService) calculateChecksum(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// 返回校验和的第一部分
-	return string(output[:64]), nil
+
+	// 使用空白字符分割来可靠地提取校验和
+	// sha256sum 输出格式: "<checksum>  <filename>"
+	fields := strings.Fields(string(output))
+	if len(fields) == 0 {
+		return "", fmt.Errorf("invalid sha256sum output format")
+	}
+
+	// 返回第一个字段，即校验和
+	return fields[0], nil
 }
 
 // CleanupOldBackups 清理旧备份
