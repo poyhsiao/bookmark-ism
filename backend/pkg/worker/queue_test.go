@@ -113,11 +113,24 @@ func (suite *WorkerPoolTestSuite) TestStopNotStarted() {
 func (suite *WorkerPoolTestSuite) TestSubmitJob_Success() {
 	suite.pool.Start()
 
-	job := NewTestJob("test-1", "test", 3, nil)
-	err := suite.pool.Submit(job)
+	// Use a channel to block the job execution
+	block := make(chan struct{})
+	job := NewTestJob("test-1", "test", 3, func(ctx context.Context) error {
+		<-block // Wait for signal
+		return nil
+	})
 
+	err := suite.pool.Submit(job)
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), 1, suite.pool.GetQueueSize())
+
+	// Give a short time for job to start processing
+	time.Sleep(10 * time.Millisecond)
+
+	// Queue should be empty (job is being processed)
+	assert.Equal(suite.T(), 0, suite.pool.GetQueueSize())
+
+	// Unblock the job
+	close(block)
 }
 
 func (suite *WorkerPoolTestSuite) TestSubmitJob_NotStarted() {
@@ -226,24 +239,36 @@ func (suite *WorkerPoolTestSuite) TestMultipleJobs() {
 }
 
 func (suite *WorkerPoolTestSuite) TestQueueFull() {
-	// Create a small queue
-	pool := NewWorkerPool(1, 2, suite.logger)
-	pool.Start()
-	defer pool.Stop()
+	// Create a small queue with no workers to avoid processing
+	pool := NewWorkerPool(0, 2, suite.logger) // 0 workers, queue size 2
+	if pool == nil {
+		suite.T().Fatal("Failed to create worker pool")
+	}
 
-	// Fill the queue
+	// Since we have 0 workers, we need to manually set started to true
+	// to allow submissions but prevent processing
+	pool.mu.Lock()
+	pool.started = true
+	pool.mu.Unlock()
+
+	defer func() {
+		pool.mu.Lock()
+		pool.started = false
+		pool.mu.Unlock()
+	}()
+
+	// Fill the queue (2 items max)
 	for i := 0; i < 2; i++ {
-		job := NewTestJob(fmt.Sprintf("test-%d", i), "test", 3, func(ctx context.Context) error {
-			time.Sleep(100 * time.Millisecond) // Slow job to fill queue
-			return nil
-		})
+		job := NewTestJob(fmt.Sprintf("test-%d", i), "test", 3, nil)
 		err := pool.Submit(job)
 		assert.NoError(suite.T(), err)
 	}
 
-	// Try to submit one more job - should fail
+	// Try to submit one more job - should fail because queue is full
 	job := NewTestJob("test-overflow", "test", 3, nil)
 	err := pool.Submit(job)
+
+	// The test should fail here because queue is full
 	assert.Error(suite.T(), err)
 	assert.Contains(suite.T(), err.Error(), "job queue is full")
 }

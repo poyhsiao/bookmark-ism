@@ -1,0 +1,206 @@
+{
+  "id": null,
+  "title": "System Metrics",
+  "tags": ["system", "infrastructure"],
+  "style": "dark",
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU Usage %"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 80,
+          "colorMode": "critical",
+          "op": "gt"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "title": "Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "Memory Usage %"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 85,
+          "colorMode": "critical",
+          "op": "gt"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "id": 3,
+      "title": "Disk Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "(1 - (node_filesystem_avail_bytes{fstype!=\"tmpfs\"} / node_filesystem_size_bytes{fstype!=\"tmpfs\"})) * 100",
+          "legendFormat": "{{mountpoint}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 90,
+          "colorMode": "critical",
+          "op": "gt"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": 4,
+      "title": "Network I/O",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total[5m]) * 8",
+          "legendFormat": "Receive {{device}}"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total[5m]) * 8",
+          "legendFormat": "Transmit {{device}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "bps"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 5,
+      "title": "Disk I/O",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(node_disk_read_bytes_total[5m])",
+          "legendFormat": "Read {{device}}"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total[5m])",
+          "legendFormat": "Write {{device}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "Bps"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      }
+    },
+    {
+      "id": 6,
+      "title": "Container CPU Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "percent"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "id": 7,
+      "title": "Container Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{name!=\"\"}",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "unit": "bytes"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "version": 1,
+  "links": []
+}

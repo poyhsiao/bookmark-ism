@@ -8,7 +8,7 @@ import (
 
 	"bookmark-sync-service/backend/internal/config"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // Client wraps the Redis client with additional functionality

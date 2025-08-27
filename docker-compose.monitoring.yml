@@ -1,0 +1,207 @@
+version: '3.8'
+
+services:
+  # 现有服务...
+
+  # Prometheus 监控服务
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: bookmark-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - monitoring
+      - app_network
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Grafana 可视化服务
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: bookmark-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SMTP_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # AlertManager 告警管理
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: bookmark-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Node Exporter 系统指标
+  node-exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: bookmark-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # cAdvisor 容器指标
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: bookmark-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Loki 日志聚合
+  loki:
+    image: grafana/loki:2.8.0
+    container_name: bookmark-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Promtail 日志收集
+  promtail:
+    image: grafana/promtail:2.8.0
+    container_name: bookmark-promtail
+    volumes:
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Jaeger 分布式追踪
+  jaeger:
+    image: jaegertracing/all-in-one:1.47
+    container_name: bookmark-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # 更新API服务配置以包含监控
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bookmark-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DATABASE_HOST=supabase-db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_DBNAME=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_API_KEY=xyz
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - PROMETHEUS_ENABLED=true
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - LOG_LEVEL=info
+    volumes:
+      - ./backend:/app
+    networks:
+      - app_network
+      - monitoring
+    depends_on:
+      - supabase-db
+      - redis
+      - typesense
+      - minio
+      - prometheus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app_network:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  loki_data:
+    driver: local

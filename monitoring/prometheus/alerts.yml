@@ -1,0 +1,176 @@
+groups:
+  - name: bookmark_service_alerts
+    rules:
+      # HTTP请求相关告警
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP错误率过高"
+          description: "{{ $labels.instance }} 的HTTP错误率在过去5分钟内超过5%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP请求延迟过高"
+          description: "{{ $labels.instance }} 的95%分位响应时间超过1秒，当前值: {{ $value }}s"
+
+      - alert: CriticalLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP请求延迟严重过高"
+          description: "{{ $labels.instance }} 的95%分位响应时间超过5秒，当前值: {{ $value }}s"
+
+      # 资源使用告警
+      - alert: HighMemoryUsage
+        expr: go_memstats_alloc_bytes / 1024 / 1024 > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "{{ $labels.instance }} 的内存使用超过500MB，当前值: {{ $value | humanize }}MB"
+
+      - alert: HighGoroutineCount
+        expr: go_goroutines > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Goroutine数量过多"
+          description: "{{ $labels.instance }} 的Goroutine数量超过1000，当前值: {{ $value }}"
+
+      # 数据库连接告警
+      - alert: DatabaseConnectionPoolExhausted
+        expr: database_connections{state="in_use"} / database_connections{state="open"} > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接池使用率过高"
+          description: "{{ $labels.instance }} 的数据库连接池使用率超过90%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(database_query_duration_seconds_bucket[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库查询速度过慢"
+          description: "{{ $labels.instance }} 的95%分位数据库查询时间超过100ms，当前值: {{ $value }}s"
+
+      # Redis连接告警
+      - alert: RedisConnectionIssues
+        expr: redis_connections{state="active"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis连接异常"
+          description: "{{ $labels.instance }} 没有活跃的Redis连接"
+
+      # 服务健康检查告警
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务不可用"
+          description: "{{ $labels.instance }} 服务已下线超过1分钟"
+
+      - alert: HealthCheckFailing
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "健康检查失败"
+          description: "{{ $labels.instance }} 健康检查失败超过2分钟"
+
+  - name: infrastructure_alerts
+    rules:
+      # 系统资源告警
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU使用率过高"
+          description: "{{ $labels.instance }} CPU使用率超过80%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "{{ $labels.instance }} 内存使用率超过85%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: HighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘使用率过高"
+          description: "{{ $labels.instance }} 磁盘 {{ $labels.mountpoint }} 使用率超过90%，当前值: {{ $value | humanizePercentage }}"
+
+      # 容器相关告警
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器CPU使用率过高"
+          description: "容器 {{ $labels.name }} CPU使用率超过80%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器内存使用率过高"
+          description: "容器 {{ $labels.name }} 内存使用率超过85%，当前值: {{ $value | humanizePercentage }}"
+
+  - name: business_metrics_alerts
+    rules:
+      # 业务指标告警
+      - alert: HighUserGrowthRate
+        expr: increase(business_metrics{metric_name="total_users"}[1h]) > 100
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "用户增长率异常"
+          description: "过去1小时新增用户超过100人，可能需要关注系统负载"
+
+      - alert: LowActiveUsers
+        expr: business_metrics{metric_name="active_users_24h"} / business_metrics{metric_name="total_users"} < 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "用户活跃度低"
+          description: "24小时活跃用户比例低于10%，当前值: {{ $value | humanizePercentage }}"
+
+      - alert: HighSyncFailureRate
+        expr: rate(sync_errors_total[5m]) / rate(sync_operations_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "同步失败率过高"
+          description: "同步操作失败率超过10%，当前值: {{ $value | humanizePercentage }}"
