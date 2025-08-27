@@ -144,9 +144,12 @@ func (suite *WorkerPoolTestSuite) TestSubmitJob_NotStarted() {
 func (suite *WorkerPoolTestSuite) TestJobExecution() {
 	suite.pool.Start()
 
-	executed := false
+	var executed bool
+	var mu sync.Mutex
 	job := NewTestJob("test-1", "test", 3, func(ctx context.Context) error {
+		mu.Lock()
 		executed = true
+		mu.Unlock()
 		return nil
 	})
 
@@ -156,17 +159,23 @@ func (suite *WorkerPoolTestSuite) TestJobExecution() {
 	// Wait for job to be processed
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
 	assert.True(suite.T(), executed)
+	mu.Unlock()
 	assert.True(suite.T(), job.IsExecuted())
 }
 
 func (suite *WorkerPoolTestSuite) TestJobRetry() {
 	suite.pool.Start()
 
-	executionCount := 0
+	var executionCount int
+	var mu sync.Mutex
 	job := NewTestJob("test-1", "test", 2, func(ctx context.Context) error {
+		mu.Lock()
 		executionCount++
-		if executionCount <= 2 {
+		currentCount := executionCount
+		mu.Unlock()
+		if currentCount <= 2 {
 			return errors.New("temporary error")
 		}
 		return nil
@@ -179,16 +188,21 @@ func (suite *WorkerPoolTestSuite) TestJobRetry() {
 	time.Sleep(3 * time.Second)
 
 	// Job should be executed at least twice (initial + 1 retry minimum)
+	mu.Lock()
 	assert.GreaterOrEqual(suite.T(), executionCount, 2)
+	mu.Unlock()
 	assert.True(suite.T(), job.IsExecuted())
 }
 
 func (suite *WorkerPoolTestSuite) TestJobMaxRetriesExceeded() {
 	suite.pool.Start()
 
-	executionCount := 0
+	var executionCount int
+	var mu sync.Mutex
 	job := NewTestJob("test-1", "test", 1, func(ctx context.Context) error {
+		mu.Lock()
 		executionCount++
+		mu.Unlock()
 		return errors.New("persistent error")
 	})
 
@@ -198,7 +212,9 @@ func (suite *WorkerPoolTestSuite) TestJobMaxRetriesExceeded() {
 	// Wait for job to be processed with retries
 	time.Sleep(2 * time.Second)
 
+	mu.Lock()
 	assert.Equal(suite.T(), 2, executionCount) // Initial + 1 retry
+	mu.Unlock()
 	assert.True(suite.T(), job.IsExecuted())
 	assert.Equal(suite.T(), 1, job.GetRetryCount())
 }
