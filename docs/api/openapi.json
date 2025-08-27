@@ -1,0 +1,320 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Bookmark Sync Service API",
+    "description": "A comprehensive bookmark synchronization service with cross-browser support",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Bookmark Sync Team",
+      "email": "api@bookmark-sync.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/api/v1",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.bookmark-sync.com/v1",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "method": "POST",
+        "path": "/auth/login",
+        "description": "Authenticate user and return JWT token",
+        "requestBody": {
+          "description": "User credentials",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "User email address",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "User password",
+                    "example": "secretpassword"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "JWT authentication token"
+                    },
+                    "user": {
+                      "type": "object",
+                      "description": "User information"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "method": "POST",
+        "path": "/auth/register",
+        "description": "Register new user account",
+        "requestBody": {
+          "description": "User registration data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "User email address"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "User display name"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "User password"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully"
+          },
+          "400": {
+            "description": "Invalid input data"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/bookmarks": {
+      "get": {
+        "method": "GET",
+        "path": "/bookmarks",
+        "description": "List user bookmarks with pagination and filtering",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of bookmarks to return",
+            "required": false,
+            "type": "integer",
+            "example": "50"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of bookmarks to skip",
+            "required": false,
+            "type": "integer",
+            "example": "0"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search term for filtering bookmarks",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of bookmarks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bookmarks": {
+                      "type": "array",
+                      "description": "Array of bookmark objects"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of bookmarks"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Bookmarks"
+        ]
+      },
+      "post": {
+        "method": "POST",
+        "path": "/bookmarks",
+        "description": "Create a new bookmark",
+        "requestBody": {
+          "description": "Bookmark data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "Bookmark description"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "description": "Bookmark tags"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Bookmark title"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Bookmark URL"
+                  }
+                },
+                "required": [
+                  "title",
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bookmark created successfully"
+          },
+          "400": {
+            "description": "Invalid bookmark data"
+          }
+        },
+        "tags": [
+          "Bookmarks"
+        ]
+      }
+    },
+    "/collections": {
+      "get": {
+        "method": "GET",
+        "path": "/collections",
+        "description": "List user collections",
+        "responses": {
+          "200": {
+            "description": "List of collections"
+          }
+        },
+        "tags": [
+          "Collections"
+        ]
+      },
+      "post": {
+        "method": "POST",
+        "path": "/collections",
+        "description": "Create a new collection",
+        "requestBody": {
+          "description": "Collection data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "Collection description"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Collection name"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Collection created successfully"
+          }
+        },
+        "tags": [
+          "Collections"
+        ]
+      }
+    },
+    "/unknown": {
+      "get": {
+        "method": "GET",
+        "path": "/unknown",
+        "description": "NewHandler creates a new user handler",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
